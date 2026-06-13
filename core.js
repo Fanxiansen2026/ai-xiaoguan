@@ -215,7 +215,16 @@ function switchPage(page,featureId=null){
         trackFeatureUse(featureId);
     }
     if(page==='profile'){initProfile(); trackPageView('profile');}
-    if(page==='admin'){initAdmin(); trackPageView('admin');}
+    if(page==='admin'){
+        // 先渲染admin页面骨架
+        $('#mainContent').innerHTML = `
+        <div id="adminPage">
+            <div id="adminTabs" style="display:flex;gap:0;overflow-x:auto;margin-bottom:20px;border-bottom:1px solid var(--brd);"></div>
+            <div id="adminPanel"></div>
+        </div>`;
+        initAdmin();
+        trackPageView('admin');
+    }
     closeSidebar();
 }
 

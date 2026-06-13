@@ -12,7 +12,7 @@ function isAdminAuthed() {
 // 验证管理员密码
 function promptAdminPassword(callback) {
   if (isAdminAuthed()) {
-    callback();
+   callback();
     return;
   }
 
@@ -23,6 +23,12 @@ function promptAdminPassword(callback) {
   } else if (pwd !== null) {
     alert('❌ 密码错误！');
   }
+}
+
+// HTML转义工具函数
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function initAdmin(){
@@ -140,7 +146,10 @@ function _renderPanel(tab, panel) {
         let html = '';
         Object.keys(grouped).forEach(cat=>{
             html += `<div class="script-cat"><div class="script-cat-title">${cat} (${grouped[cat].length}) <span>▼</span></div><div class="script-cat-items">`;
-            grouped[cat].forEach(s=>{html += `<div class="script-item"><p><span class="title">${s.title}</span><br>${s.content}</p><button class="mini-btn btn-copy-script" data-text="${s.content.replace(/"/g,'&quot;}">复制</button><button class="mini-btn btn-del-script" data-id="${s.id}">删除</button></div>`;});
+            grouped[cat].forEach(s=>{
+                var safe = (s.content||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                html += '<div class="script-item"><p><span class="title">' + escapeHtml(s.title) + '</span><br>' + escapeHtml(s.content) + '</p><button class="mini-btn btn-copy-script" data-text="' + safe + '">复制</button><button class="mini-btn btn-del-script" data-id="' + s.id + '">删除</button></div>';
+            });
             html += `</div></div>`;
         });
         list.innerHTML = html;
