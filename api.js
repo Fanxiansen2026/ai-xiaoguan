@@ -1,4 +1,5 @@
 // ===== API通信与AI调用模块 =====
+const API_BASE = "https://api.54xiaoguan.cn";
 let lastUserPrompt = '';
 
 // ===== 语音输入模块 =====
