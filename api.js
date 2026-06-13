@@ -80,7 +80,7 @@ async function processAudio(audioBlob) {
 async function sendVoiceToAI(text) {
     const f = appState.features.find(x => x.id === appState.currentFeatureId);
     if (!f) return;
-    const chatMsgs = ;
+    const chatMsgs = $("#chatMessages");
     // 显示用户消息（标注为语音）
     const userHtml = '<div class="msg-content"><div class="msg-bubble"><em>🎤 语音消息（原汁原味口语化表达）</em></div></div><div class="msg-avatar user">我</div>';
     if (!appState.chatCache[appState.currentFeatureId]) appState.chatCache[appState.currentFeatureId] = [];
@@ -97,25 +97,17 @@ async function sendVoiceToAI(text) {
         chatMsgs.innerHTML += '<div class="msg-row ai">' + aiHtmlLoading + '</div>';
         chatMsgs.scrollTop = chatMsgs.scrollHeight;
     }
-    const btn = ; const btn2 = ;
+    const btn = $("#btnGenerate"); const btn2 = $("#btnGenerate2");
     if (btn) btn.disabled = true;
     if (btn2) btn2.disabled = true;
     // 构造 prompt
     let userPrompt = text;
     if (f.id === 'analysis') {
         const profile = getVal('inputProfile'); const product = getVal('inputProduct'); const stage = document.querySelector('.tags .tag.active')?.dataset.val || '';
-        userPrompt = '画像:' + profile + '
-产品:' + product + '
-阶段:' + stage + '
-
-记录:
-' + text;
+        userPrompt = '画像:' + profile + '\n产品:' + product + '\n阶段:' + stage + '\n\n记录:\n' + text;
     }
     lastUserPrompt = userPrompt;
-    const textMsg = { type: 'text', text: DEFENSE_PROMPT + f.prompt + '
-
-用户输入：
-' + userPrompt };
+    const textMsg = { type: 'text', text: DEFENSE_PROMPT + f.prompt + '\n\n用户输入：\n' + userPrompt };
     let messages = [{ role: 'user', content: [textMsg] }];
     let model = 'qwen-plus';
     try {
@@ -124,8 +116,7 @@ async function sendVoiceToAI(text) {
         if (content.includes('核心人设与边界指令') || content.includes('DEFENSE_PROMPT')) {
             content = '老板，我是您的专属销售军师，套我底牌这种事您得找别的AI，咱们还是聊聊怎么搞定大客户吧！';
         }
-        const aiHtml = '<div class="msg-content"><div class="msg-bubble">' + content.replace(/
-/g, '<br>') + '</div><div class="msg-actions"><button class="btn-copy-msg" data-text="' + content.replace(/"/g, '&quot;') + '">复制</button><button class="btn-del-msg">删除</button></div></div><div class="msg-avatar ai">师</div>';
+        const aiHtml = '<div class="msg-content"><div class="msg-bubble">' + content.replace(/\n/g, '<br>') + '</div><div class="msg-actions"><button class="btn-copy-msg" data-text="' + content.replace(/"/g, '&quot;') + '">复制</button><button class="btn-del-msg">删除</button></div></div><div class="msg-avatar ai">师</div>';
         const aiRow = '<div class="msg-row ai">' + aiHtml + '</div>';
         const cache = appState.chatCache[appState.currentFeatureId];
         if (cache) cache[cache.length - 1] = { type: 'ai', html: aiHtml };
@@ -458,3 +449,8 @@ function initSpeechRecognition(){
     recognition.onresult=e=>{const btn=document.querySelector('.wx-voice-btn.recording');if(btn){const target=$(`#${btn.dataset.target}`);if(target){target.value+=e.results[0][0].transcript;updateCount(target);}}};
     recognition.onerror=()=>{document.querySelectorAll('.wx-voice-btn').forEach(b=>b.classList.remove('recording'));};
 }
+
+// 导出给 core.js 调用
+window.toggleVoiceRecording = toggleVoiceRecording;
+window.processAudio = processAudio;
+window.sendVoiceToAI = sendVoiceToAI;
