@@ -1,8 +1,6 @@
-// ===== API 代理客户端 =====
+// ===== API 代理客户端 v2.0 =====
 // 所有 AI 调用都通过 Cloudflare Worker 后端转发
-// 真实 API Key 永远不暴露在前端
 
-// Worker 后端地址（部署后替换为真实地址）
 const WORKER_URL = 'https://api.54xiaoguan.cn';
 
 // 用户唯一标识（基于设备指纹）
@@ -15,7 +13,7 @@ function getDeviceId() {
   return did;
 }
 
-// ===== 激活码验证（调用后端）=====
+// ===== 激活码验证 =====
 async function verifyActivationCode(code) {
   try {
     const res = await fetch(`${WORKER_URL}/verify`, {
@@ -23,7 +21,23 @@ async function verifyActivationCode(code) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: code.trim(), deviceId: getDeviceId() })
     });
-    return await res.json();
+    const data = await res.json();
+
+    // ★★★ 激活成功后立即触发追踪事件 ★★★
+    if (data.valid) {
+      // 延迟发送追踪，确保不阻塞激活流程
+      setTimeout(() => {
+        trackEvent('activation_success', {
+          code: code.trim().toUpperCase(),
+          type: data.type,
+          days: data.days,
+          deviceCount: data.deviceCount || 1,
+          hasWarning: !!data.warning
+        });
+      }, 100);
+    }
+
+    return data;
   } catch(e) {
     console.error('[激活验证失败]', e);
     return { valid: false, message: '网络错误，请检查连接' };
@@ -44,23 +58,18 @@ async function checkActivationStatus() {
   }
 }
 
-// ===== AI 对话代理（替代直接调阿里云）=====
+// ===== AI 对话代理 =====
 async function proxyChat(messages, model) {
   try {
     const res = await fetch(`${WORKER_URL}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages,
-        model,
-        userId: getDeviceId()
-      })
+      body: JSON.stringify({ messages, model, userId: getDeviceId() })
     });
 
     const data = await res.json();
 
     if (!res.ok) {
-      // 特殊错误码处理
       if (data.error === 'ACTIVATION_EXPIRED') throw new Error('⚠️ 您的激活码已过期，请重新激活！');
       if (data.error === 'RATE_LIMITED') throw new Error(`⚠️ ${data.message}`);
       throw new Error(data.message || data.error || 'AI服务异常');
@@ -68,7 +77,6 @@ async function proxyChat(messages, model) {
 
     return data;
   } catch(e) {
-    // 如果是业务错误，重新抛出
     if (e.message && e.message.startsWith('⚠️')) throw e;
     throw new Error('网络请求失败，请检查网络或联系客服');
   }
@@ -88,33 +96,36 @@ async function queryQuota() {
   }
 }
 
-// ===== 用户行为追踪 =====
+// ===== 用户行为追踪（增强版）=====
 async function trackEvent(eventType, eventData = {}) {
   try {
     const activation = JSON.parse(localStorage.getItem('ai_sales_activation') || '{}');
-    const activationCode = activation.code || 'unknown';
+    const activationCode = activation.code || '';
 
-    // 只在已激活时追踪
-    if (!activation.isValid) return;
+    // 放宽条件：未激活时也可以发部分基础事件
+    const publicEvents = ['session_start', 'session_end', 'app_open', 'page_view'];
+    if (!activation.isValid && !publicEvents.includes(eventType)) return;
 
     await fetch(`${WORKER_URL}/track`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        activationCode,
+        activationCode: activationCode || undefined,
         eventType,
         eventData,
+        deviceId: getDeviceId(),
         timestamp: Date.now()
       })
     });
   } catch(e) {
-    console.error('[追踪失败]', e.message);
+    // 静默失败，不影响用户体验
+    console.debug('[追踪]', e.message);
   }
 }
 
 // 导出给其他模块使用
 window.AiApiProxy = {
-  WORKER_URL,           // 方便外部修改地址
+  WORKER_URL,
   getDeviceId,
   verifyActivationCode,
   checkActivationStatus,
