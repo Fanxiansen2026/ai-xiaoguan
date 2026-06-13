@@ -495,7 +495,7 @@ async function loadActivationCodeGrid() {
 
 
 // ============================================================
-// ★★★ 数据看板 v2.0（从 Worker 获取真实数据） ★★★
+// ★★★ 数据看板 v3.0（全面维度升级） ★★★
 // ============================================================
 async function loadAnalyticsDashboard() {
     const container = document.getElementById('analyticsContent');
@@ -513,41 +513,102 @@ async function loadAnalyticsDashboard() {
         if (!data.success) throw new Error(data.error || '未知错误');
 
         const ov = data.overview;
-        const features = data.featureRanking;
+        const features = data.featureRanking || [];
+        const fv = data.featureViewVsUsage || [];  // 功能浏览vs使用
         const dailyTrend = data.dailyTrend || [];
         const codeDetails = data.codeDetails || [];
 
-        // 计算转化漏斗
         const totalVisitors = ov.totalVisitors || 0;
         const totalActivations = ov.totalActivations || 0;
-        const convRate = totalVisitors > 0 ? Math.round(totalActivations / totalVisitors * 100) : 0;
+        const avgDur = ov.avgDurationMin || 0;
+        const bounceRate = ov.bounceRate || 0;
+        const activationRate = ov.activationRate || 0;
+        const featureUsageRate = ov.featureUsageRate || 0;
+        const todayNew = ov.todayNewVisitors || 0;
 
-        // 功能排行最大值
         const maxFCount = features.length > 0 ? Math.max(...features.map(f => f.count), 1) : 1;
 
         let html = '';
 
-        // ========== 1. 核心指标卡 ==========
-        html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;">
-            <div style="text-align:center;padding:20px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:36px;font-weight:bold;color:var(--gold)">${totalVisitors}</div>
-                <div style="font-size:12px;color:var(--sub);margin-top:4px">总访客</div>
+        // ========== 1. 核心指标卡（8张）==========
+        html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;">
+            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+                <div style="font-size:32px;font-weight:bold;color:var(--gold)">${totalVisitors}</div>
+                <div style="font-size:11px;color:var(--sub);margin-top:4px">总访客</div>
             </div>
-            <div style="text-align:center;padding:20px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:36px;font-weight:bold;color:var(--accent)">${totalActivations}</div>
-                <div style="font-size:12px;color:var(--sub);margin-top:4px">总激活数</div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+                <div style="font-size:32px;font-weight:bold;color:#3B82F6">${todayNew}</div>
+                <div style="font-size:11px;color:var(--sub);margin-top:4px">今日新增</div>
             </div>
-            <div style="text-align:center;padding:20px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:36px;font-weight:bold;color:var(--ok)">${ov.totalMessages}</div>
-                <div style="font-size:12px;color:var(--sub);margin-top:4px">消息总数</div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+                <div style="font-size:32px;font-weight:bold;color:var(--accent)">${totalActivations}</div>
+                <div style="font-size:11px;color:var(--sub);margin-top:4px">总激活 <span style="color:${activationRate>=50?'var(--ok)':'var(--red)'}">(${activationRate}%)</span></div>
             </div>
-            <div style="text-align:center;padding:20px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:36px;font-weight:bold;color:#8B5CF6">${ov.totalDurationMin}</div>
-                <div style="font-size:12px;color:var(--sub);margin-top:4px">总时长(分)</div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+                <div style="font-size:32px;font-weight:bold;color:var(--ok)">${ov.totalMessages}</div>
+                <div style="font-size:11px;color:var(--sub);margin-top:4px">总消息</div>
+            </div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+                <div style="font-size:32px;font-weight:bold;color:#8B5CF6">${ov.totalDurationMin}</div>
+                <div style="font-size:11px;color:var(--sub);margin-top:4px">总时长(分)</div>
+            </div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+                <div style="font-size:32px;font-weight:bold;color:#F59E0B">${avgDur}</div>
+                <div style="font-size:11px;color:var(--sub);margin-top:4px">平均时长(分/人)</div>
+            </div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+                <div style="font-size:32px;font-weight:bold;color:${bounceRate>50?'var(--red)':'var(--ok)'}">${bounceRate}%</div>
+                <div style="font-size:11px;color:var(--sub);margin-top:4px">流失率</div>
+            </div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+                <div style="font-size:32px;font-weight:bold;color:${featureUsageRate>=60?'var(--ok)':'var(--red)'}">${featureUsageRate}%</div>
+                <div style="font-size:11px;color:var(--sub);margin-top:4px">功能使用率</div>
             </div>
         </div>`;
 
-        // ========== 2. 功能使用排行榜 + 使用时长 ==========
+        // ========== 2. 转化漏斗 ==========
+        const funnelSteps = [
+            { label: '访客总数', value: totalVisitors, color: 'var(--gold)', bg: 'rgba(245,158,11,.1)' },
+            { label: '激活人数', value: totalActivations, color: '#3B82F6', bg: 'rgba(59,130,246,.1)' },
+            { label: '功能使用', value: totalVisitors - (ov.bounceCount||0), color: 'var(--ok)', bg: 'rgba(16,185,129,.1)' },
+            { label: '对话消息', value: ov.totalMessages, color: '#8B5CF6', bg: 'rgba(139,92,246,.1)' }
+        ];
+        const maxFunnel = Math.max(...funnelSteps.map(s => s.value), 1);
+
+        const funnelHtml = funnelSteps.map((s, i) => {
+            const pct = Math.max(Math.round(s.value / maxFunnel * 100), 8);
+            const convPct = i === 0 ? 100 : Math.round(s.value / funnelSteps[i-1].value * 100);
+            return `<div style="margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                    <span>${s.label}</span>
+                    <span style="color:${s.color};font-weight:700">${s.value} <small style="color:var(--sub)">(${convPct}%)</small></span>
+                </div>
+                <div style="height:28px;background:${s.bg};border-radius:6px;overflow:hidden;display:flex;align-items:flex-end">
+                    <div style="width:${pct}%;height:100%;background:${s.color};border-radius:6px;transition:width .6s;display:flex;align-items:flex-end;justify-content:flex-end;padding:0 8px;font-size:11px;color:#000;font-weight:600">${pct}%</div>
+                </div>
+            </div>`;
+        }).join('');
+
+        // ========== 3. 功能浏览vs使用对比（新）==========
+        const fvHtml = fv.length > 0 ? fv.map(f => {
+            const fname = appState.features.find(x=>x.id===f.id)?.name || f.id;
+            const vPct = f.viewCount > 0 ? Math.round(f.useCount / f.viewCount * 100) : 0;
+            return `<tr style="border-bottom:1px solid rgba(255,255,255,.04)">
+                <td style="padding:8px 6px;font-size:12px;color:var(--txt)">${fname}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:12px">${f.viewCount}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:12px;color:var(--ok)">${f.useCount}</td>
+                <td style="padding:8px 6px;text-align:center">
+                    <span style="font-size:11px;color:${vPct>=30?'var(--ok)':'var(--red)'};font-weight:600">${vPct}%</span>
+                </td>
+                <td style="padding:8px 6px;text-align:center">
+                    <div style="height:6px;background:rgba(255,255,255,.05);border-radius:3px;width:60px;display:inline-block">
+                        <div style="width:${vPct}%;height:100%;background:${vPct>=30?'var(--ok)':'var(--red)'};border-radius:3px"></div>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('') : '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--sub)">暂无数据</td></tr>';
+
+        // ========== 4. 功能使用排行榜 ==========
         const featureHtml = features.map(f => {
             const fname = appState.features.find(x=>x.id===f.id)?.name || f.id;
             const pct = Math.round(f.count / maxFCount * 100);
@@ -561,31 +622,7 @@ async function loadAnalyticsDashboard() {
             </div>`;
         }).join('');
 
-        html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
-            <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;">
-                <div style="font-size:14px;font-weight:700;margin-bottom:12px">🔥 功能使用排行</div>
-                ${featureHtml || '<div style="text-align:center;color:var(--sub);padding:20px">暂无数据</div>'}
-            </div>
-            <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;">
-                <div style="font-size:14px;font-weight:700;margin-bottom:12px">📊 转化漏斗</div>
-                <div style="display:flex;flex-direction:column;gap:10px">
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(245,158,11,.08);border-radius:6px;border-left:3px solid var(--gold)">
-                        <span>访客总数</span><strong style="color:var(--gold);font-size:16px">${totalVisitors}</strong>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(59,130,246,.08);border-radius:6px;border-left:3px solid #3B82F6">
-                        <span>激活人数</span><strong style="color:#3B82F6;font-size:16px">${totalActivations}<small style="font-weight:normal;color:var(--sub)">(${convRate}%)</small></strong>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(16,185,129,.08);border-radius:6px;border-left:3px solid var(--ok)">
-                        <span>对话消息</span><strong style="color:var(--ok);font-size:16px">${ov.totalMessages}</strong>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(139,92,246,.08);border-radius:6px;border-left:3px solid #8B5CF6">
-                        <span>总使用时长</span><strong style="color:#8B5CF6;font-size:16px">${ov.totalDurationMin}分钟</strong>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-
-        // ========== 3. 最近7天趋势 ==========
+        // ========== 5. 最近7天趋势 ==========
         const maxDaily = dailyTrend.length > 0 ? Math.max(...dailyTrend.map(d => d.activeUsers), 1) : 1;
         const trendBars = dailyTrend.map(d => {
             const h = Math.max(Math.round(d.activeUsers / maxDaily * 100), d.activeUsers > 0 ? 8 : 2);
@@ -594,54 +631,89 @@ async function loadAnalyticsDashboard() {
                 <div style="width:100%;max-width:32px;height:60px;background:rgba(255,255,255,.03);border-radius:4px 4px 0 0;display:flex;align-items:flex-end">
                     <div style="width:100%;height:${h}%;background:linear-gradient(to top,var(--gold),rgba(245,158,11,.3));border-radius:4px;transition:height .5s"></div>
                 </div>
-                <span style="font-size:9px;color:var(--sub)">${d.date.slice(5)}</span>
+                <span style="font-size:9px;color:var(--sub)">${d.date ? d.date.slice(5) : ''}</span>
             </div>`;
         }).join('');
 
-        html += `<div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;margin-bottom:24px;">
-            <div style="font-size:14px;font-weight:700;margin-bottom:12px">📈 最近7天活跃趋势</div>
-            <div style="display:flex;gap:8px;align-items:flex-end;height:110px;padding:0 8px">
-                ${trendBars || '<div style="color:var(--sub);width:100%;text-align:center;padding:30px">暂无数据</div>'}
+        // 组装左侧+右侧2列
+        html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+            <!-- 左：转化漏斗 + 功能浏览vs使用 -->
+            <div>
+                <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;margin-bottom:16px;">
+                    <div style="font-size:14px;font-weight:700;margin-bottom:14px">🔄 转化漏斗</div>
+                    ${funnelHtml}
+                </div>
+                <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;">
+                    <div style="font-size:14px;font-weight:700;margin-bottom:4px">👁️ 功能浏览 vs 使用</div>
+                    <div style="font-size:11px;color:var(--sub);margin-bottom:10px">看看用户看了但没用的功能（流失点）</div>
+                    <table style="width:100%;font-size:12px;border-collapse:collapse">
+                        <thead><tr style="color:var(--sub);font-size:11px">
+                            <th style="text-align:left;padding:6px">功能</th>
+                            <th style="text-align:center;padding:6px">浏览</th>
+                            <th style="text-align:center;padding:6px">使用</th>
+                            <th style="text-align:center;padding:6px">转化率</th>
+                            <th style="text-align:center;padding:6px"></th>
+                        </tr></thead>
+                        <tbody>${fvHtml}</tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- 右：功能排行 + 7日趋势 -->
+            <div>
+                <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;margin-bottom:16px;">
+                    <div style="font-size:14px;font-weight:700;margin-bottom:12px">🔥 功能使用排行榜</div>
+                    ${featureHtml || '<div style="text-align:center;color:var(--sub);padding:20px">暂无数据</div>'}
+                </div>
+                <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;">
+                    <div style="font-size:14px;font-weight:700;margin-bottom:12px">📈 最近7天活跃趋势</div>
+                    <div style="display:flex;gap:8px;align-items:flex-end;height:110px;padding:0 8px">
+                        ${trendBars || '<div style="color:var(--sub);width:100%;text-align:center;padding:30px">暂无数据</div>'}
+                    </div>
+                </div>
             </div>
         </div>`;
 
-        // ========== 4. 激活码使用明细表 ==========
-        const tableRows = codeDetails.slice(0, 20).map(c => {
+        // ========== 6. 激活码使用明细表（可点击展开）==========
+        html += `<div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;margin-bottom:24px;">
+            <div style="font-size:14px;font-weight:700;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+                <span>📋 激活码使用明细（点击展开详情）</span>
+                <span style="font-size:11px;color:var(--sub)">共 ${codeDetails.length} 个已激活码</span>
+            </div>
+            <div style="font-size:11px;color:var(--sub);margin-bottom:12px">点击某一行查看该激活码对应用户使用了哪些功能、停留多久</div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;font-size:12px;border-collapse:collapse" id="codeDetailsTable">
+                    <thead><tr style="border-bottom:1px solid var(--brd);color:var(--sub)">
+                        <th style="text-align:left;padding:8px 6px;font-weight:600">激活码</th>
+                        <th style="text-align:left;padding:8px 6px;font-weight:600">类型</th>
+                        <th style="text-align:center;padding:8px 6px;font-weight:600">设备</th>
+                        <th style="text-align:center;padding:8px 6px;font-weight:600">会话</th>
+                        <th style="text-align:center;padding:8px 6px;font-weight:600">对话</th>
+                        <th style="text-align:center;padding:8px 6px;font-weight:600">时长(分)</th>
+                        <th style="text-align:center;padding:8px 6px;font-weight:600">最后使用</th>
+                    </tr></thead>
+                    <tbody>`;
+
+        codeDetails.forEach((c, idx) => {
             const statusColor = c.isExpired ? 'var(--red)' : c.deviceCount > 0 ? 'var(--ok)' : 'var(--sub)';
-            const statusText = c.isExpired ? '已过期' : c.deviceCount > 0 ? '使用中' : '未使用';
-            const firstDate = c.firstUsed ? new Date(c.firstUsed).toLocaleDateString('zh-CN') : '-';
             const lastDate = c.lastUsed ? new Date(c.lastUsed).toLocaleDateString('zh-CN') : '-';
-            
-            return `<tr style="border-bottom:1px solid rgba(255,255,255,.03)">
+            const codeId = `code-detail-${idx}`;
+            html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer" onclick="toggleCodeDetail('${codeId}')" id="row-${codeId}">
                 <td style="padding:8px 6px;font-family:monospace;font-size:12px;color:var(--gold)">${c.code}</td>
                 <td style="padding:8px 6px;font-size:11px">${c.label}</td>
-                <td style="padding:8px 6px;text-align:center"><span style="color:${statusColor};font-size:11px;font-weight:600">${statusText}</span></td>
                 <td style="padding:8px 6px;text-align:center;font-size:11px">${c.deviceCount}</td>
                 <td style="padding:8px 6px;text-align:center;font-size:11px">${c.totalSessions}</td>
-                <td style="padding:8px 6px;text-align:center;font-size:11px">${c.totalChats}</td>
-                <td style="padding:8px 6px;text-align:center;font-size:11px">${firstDate}</td>
-                <td style="padding:8px 6px;text-align:center;font-size:11px">${lastDate}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:11px;color:var(--ok)">${c.totalChats}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:11px">${c.totalDurationMin}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:11px;color:${statusColor}">${lastDate}</td>
+            </tr>
+            <tr id="${codeId}" style="display:none">
+                <td colspan="7" style="padding:12px;background:rgba(0,0,0,.15);font-size:12px">
+                    ${renderCodeDetail(c)}
+                </td>
             </tr>`;
-        }).join('');
+        });
 
-        html += `<div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;">
-            <div style="font-size:14px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-                <span>📋 激活码使用明细</span>
-                <span style="font-size:11px;color:var(--sub)">最近使用的 TOP20</span>
-            </div>
-            <div style="overflow-x:auto;">
-                <table style="width:100%;font-size:12px;border-collapse:collapse">
-                    <thead><tr style="border-bottom:1px solid var(--brd);color:var(--sub)">
-                        <th style="padding:8px 6px;text-align:left;font-weight:600">激活码</th>
-                        <th style="padding:8px 6px;text-align:left;font-weight:600">类型</th>
-                        <th style="padding:8px 6px;text-align:center;font-weight:600">状态</th>
-                        <th style="padding:8px 6px;text-align:center;font-weight:600">设备</th>
-                        <th style="padding:8px 6px;text-align:center;font-weight:600">会话</th>
-                        <th style="padding:8px 6px;text-align:center;font-weight:600">对话</th>
-                        <th style="padding:8px 6px;text-align:center;font-weight:600">首次使用</th>
-                        <th style="padding:8px 6px;text-align:center;font-weight:600">最后使用</th>
-                    </tr></thead>
-                    <tbody>${tableRows || '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--sub)">暂无数据</td></tr>'}</tbody>
+        html += `       </tbody>
                 </table>
             </div>
         </div>`;
@@ -655,6 +727,51 @@ async function loadAnalyticsDashboard() {
             <div style="font-size:12px;color:var(--sub);margin-top:8px">请确保 Worker 已部署最新版本</div>
         </div>`;
     }
+}
+
+// 渲染单个激活码的用户使用详情
+function renderCodeDetail(c) {
+    if (!c || !c.featureBreakdown) return '<div style="color:var(--sub)">暂无详细信息</div>';
+
+    // 功能使用明细
+    const featureRows = Object.entries(c.featureBreakdown || {}).map(([fid, cnt]) => {
+        const fname = appState.features.find(x=>x.id===fid)?.name || fid;
+        return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+            <span style="color:var(--txt)">${fname}</span>
+            <span style="color:var(--gold);font-weight:600">${cnt} 次</span>
+        </div>`;
+    }).join('');
+
+    // 设备信息
+    const devRows = (c.devices || []).map(d => {
+        const ua = (d.userAgentShort || '').slice(0, 50);
+        return `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+            <div style="font-size:11px;color:var(--sub)">📱 ${d.deviceId ? d.deviceId.slice(0,20) : ''}...</div>
+            <div style="display:flex;gap:12px;font-size:11px;margin-top:2px">
+                <span>会话:${d.sessions||0}</span>
+                <span>对话:${d.chats||0}</span>
+                <span>时长:${d.totalDurationMin||0}分</span>
+            </div>
+            ${ua ? `<div style="font-size:10px;color:var(--sub);margin-top:2px">${ua}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+            <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">📊 功能使用明细</div>
+            ${featureRows || '<div style="color:var(--sub)">无功能使用记录</div>'}
+        </div>
+        <div>
+            <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px">📱 设备信息</div>
+            ${devRows || '<div style="color:var(--sub)">无设备信息</div>'}
+        </div>
+    </div>`;
+}
+
+// 展开/收起激活码详情行
+function toggleCodeDetail(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
 }
 
 // ===== 原有的工具函数 =====
