@@ -439,8 +439,123 @@ export default {
         });
       }
 
+      // ===== 接口5: 用户行为追踪 =====
+      if (path === '/track') {
+        if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+
+        let body;
+        try {
+          body = await request.json();
+        } catch(e) {
+          return json({ error: 'Invalid request body' }, 400);
+        }
+
+        const { activationCode, eventType, eventData, timestamp } = body;
+
+        if (!activationCode || !eventType) {
+          return json({ error: 'Missing required fields' }, 400);
+        }
+
+        // 存储追踪数据到 KV
+        const trackKey = `track:${activationCode}:${Date.now()}`;
+        const trackData = {
+          activationCode,
+          eventType, // page_view, feature_use, chat_start, session_start, session_end
+          eventData: eventData || {},
+          timestamp: timestamp || Date.now(),
+          userAgent: request.headers.get('User-Agent'),
+          ip: request.headers.get('CF-Connecting-IP') || 'unknown'
+        };
+
+        try {
+          await env.RATE_LIMIT_KV.put(trackKey, JSON.stringify(trackData), { expirationTtl: 7776000 }); // 90天过期
+
+          // 更新激活码使用统计
+          const statsKey = `stats:${activationCode}`;
+          let stats = await env.RATE_LIMIT_KV.get(statsKey, 'json') || {
+            activationCode,
+            firstUsed: null,
+            lastUsed: null,
+            totalSessions: 0,
+            totalChats: 0,
+            featureUsage: {},
+            pageViews: {},
+            totalDuration: 0
+          };
+
+          // 更新统计
+          if (!stats.firstUsed) stats.firstUsed = timestamp || Date.now();
+          stats.lastUsed = timestamp || Date.now();
+
+          if (eventType === 'session_start') stats.totalSessions++;
+          if (eventType === 'chat_start') stats.totalChats++;
+          if (eventType === 'feature_use' && eventData.featureId) {
+            stats.featureUsage[eventData.featureId] = (stats.featureUsage[eventData.featureId] || 0) + 1;
+          }
+          if (eventType === 'page_view' && eventData.page) {
+            stats.pageViews[eventData.page] = (stats.pageViews[eventData.page] || 0) + 1;
+          }
+          if (eventType === 'session_end' && eventData.duration) {
+            stats.totalDuration += eventData.duration;
+          }
+
+          await env.RATE_LIMIT_KV.put(statsKey, JSON.stringify(stats), { expirationTtl: 7776000 });
+
+          return json({ success: true });
+        } catch(e) {
+          console.error('[追踪错误]', e.message);
+          return json({ error: 'Failed to save tracking data' }, 500);
+        }
+      }
+
+      // ===== 接口6: 管理员查询统计（简单密码保护）=====
+      if (path === '/admin/stats') {
+        if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+
+        let body;
+        try {
+          body = await request.json();
+        } catch(e) {
+          return json({ error: 'Invalid request body' }, 400);
+        }
+
+        // 简单密码保护（建议改为更安全的认证方式）
+        if (body.adminPassword !== 'xiaoguan2024') {
+          return json({ error: 'Unauthorized' }, 401);
+        }
+
+        try {
+          // 获取所有激活码的统计
+          const { keys } = await env.RATE_LIMIT_KV.list({ prefix: 'stats:' });
+          const allStats = [];
+
+          for (const key of keys) {
+            const stats = await env.RATE_LIMIT_KV.get(key.name, 'json');
+            if (stats) allStats.push(stats);
+          }
+
+          // 获取所有追踪事件（最近1000条）
+          const { keys: trackKeys } = await env.RATE_LIMIT_KV.list({ prefix: 'track:', limit: 1000 });
+          const recentTracks = [];
+          for (const key of trackKeys.slice(0, 100)) {
+            const track = await env.RATE_LIMIT_KV.get(key.name, 'json');
+            if (track) recentTracks.push(track);
+          }
+
+          return json({
+            success: true,
+            totalUsers: allStats.length,
+            allStats,
+            recentTracks: recentTracks.slice(0, 100)
+          });
+        } catch(e) {
+          console.error('[统计查询错误]', e.message);
+          return json({ error: 'Failed to retrieve stats' }, 500);
+        }
+      }
+
       // 未匹配路由
-      return json({ error: 'Not Found', availableEndpoints: ['/verify', '/check-status', '/chat', '/quota', '/health'] }, 404);
+      return json({ error: 'Not Found', availableEndpoints: ['/verify', '/check-status', '/chat', '/quota', '/track', '/admin/stats', '/health'] }, 404);
 
     } catch (error) {
       console.error('[Worker 错误]', error.stack || error.message);

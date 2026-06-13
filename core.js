@@ -204,17 +204,38 @@ function switchPage(page,featureId=null){
     else if(page==='profile')title='个人主页';
     else if(featureId)title=appState.features.find(x=>x.id===featureId)?.name;
     $('#pageTitle').textContent=title;
-    if(page==='home')renderHome();
+    if(page==='home'){renderHome(); trackPageView('home');}
     if(page==='workspace'&&featureId){
         if(isPaywallFeature(featureId) && !isActivated()){
             showActivationModal();
             return;
         }
         initWorkspace(featureId);
+        trackPageView('workspace:' + featureId);
+        trackFeatureUse(featureId);
     }
-    if(page==='profile')initProfile();
-    if(page==='admin')initAdmin();
+    if(page==='profile'){initProfile(); trackPageView('profile');}
+    if(page==='admin'){initAdmin(); trackPageView('admin');}
     closeSidebar();
+}
+
+// ===== 追踪函数 =====
+function trackPageView(page) {
+    if (window.AiApiProxy && window.AiApiProxy.trackEvent) {
+        window.AiApiProxy.trackEvent('page_view', { page });
+    }
+}
+
+function trackFeatureUse(featureId) {
+    if (window.AiApiProxy && window.AiApiProxy.trackEvent) {
+        window.AiApiProxy.trackEvent('feature_use', { featureId });
+    }
+}
+
+function trackChatStart(featureId) {
+    if (window.AiApiProxy && window.AiApiProxy.trackEvent) {
+        window.AiApiProxy.trackEvent('chat_start', { featureId });
+    }
 }
 
 /* ========== 页面渲染 ========== */

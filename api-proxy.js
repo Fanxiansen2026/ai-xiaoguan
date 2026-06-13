@@ -88,6 +88,30 @@ async function queryQuota() {
   }
 }
 
+// ===== 用户行为追踪 =====
+async function trackEvent(eventType, eventData = {}) {
+  try {
+    const activation = JSON.parse(localStorage.getItem('ai_sales_activation') || '{}');
+    const activationCode = activation.code || 'unknown';
+
+    // 只在已激活时追踪
+    if (!activation.isValid) return;
+
+    await fetch(`${WORKER_URL}/track`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        activationCode,
+        eventType,
+        eventData,
+        timestamp: Date.now()
+      })
+    });
+  } catch(e) {
+    console.error('[追踪失败]', e.message);
+  }
+}
+
 // 导出给其他模块使用
 window.AiApiProxy = {
   WORKER_URL,           // 方便外部修改地址
@@ -95,5 +119,6 @@ window.AiApiProxy = {
   verifyActivationCode,
   checkActivationStatus,
   proxyChat,
-  queryQuota
+  queryQuota,
+  trackEvent
 };

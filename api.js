@@ -49,6 +49,9 @@ async function handleGenerate(isRefresh){
     const chatMsgs=$('#chatMessages');
     const isPreset = f.presets.includes(input);
 
+    // 追踪：对话开始
+    if (window.trackChatStart) trackChatStart(f.id);
+
     if(f.isRoleplay){
         appState.roleplayHistory=[{role:'system',content:DEFENSE_PROMPT+f.prompt+'\n\n客户画像：'+input}];
         const userHtml = `<div class="msg-content"><div class="msg-bubble">[系统设定] 客户画像：${input}</div><div class="msg-actions"><button class="btn-copy-msg" data-text="[系统设定] 客户画像：${input}">复制</button><button class="btn-del-msg">删除</button></div></div><div class="msg-avatar user">我</div>`;

@@ -93,114 +93,27 @@ function renderAdminPanel(tab){
         });
         list.innerHTML = html;
     } else if(tab==='activation'){
-        const stats = {total: appState.activationRecords.length, used: appState.activationRecords.filter(r=>r.used).length, unused: appState.activationRecords.filter(r=>!r.used).length};
-        panel.innerHTML = `<h3>激活码管理</h3>
-        
-        <div class="activation-stats">
-            <div class="activation-stat-card">
-                <div class="activation-stat-num">${stats.total}</div>
-                <div class="activation-stat-label">总生成</div>
-            </div>
-            <div class="activation-stat-card">
-                <div class="activation-stat-num" style="color:var(--ok)">${stats.unused}</div>
-                <div class="activation-stat-label">未使用</div>
-            </div>
-            <div class="activation-stat-card">
-                <div class="activation-stat-num" style="color:var(--sub)">${stats.used}</div>
-                <div class="activation-stat-label">已使用</div>
-            </div>
-            <div class="activation-stat-card">
-                <div class="activation-stat-num" style="color:var(--gold)">${stats.total > 0 ? Math.round(stats.unused/stats.total*100) : 0}%</div>
-                <div class="activation-stat-label">库存率</div>
-            </div>
+        panel.innerHTML = `<h3>🔐 激活码管理系统</h3>
+        <div class="admin-info-box" style="background:var(--input);padding:12px;border-radius:8px;margin-bottom:16px;border:1px solid var(--brd);">
+            <p>💡 <strong>说明：</strong>激活码已在后端（Cloudflare Worker）验证。下方显示所有激活码的使用情况和用户行为数据。</p>
+            <button class="btn btn-outline" id="btnRefreshActivation" style="margin-top:8px;width:100%">🔄 刷新数据</button>
         </div>
-        
-        <div class="activation-generator">
-            <h4>批量生成激活码</h4>
-            <div class="activation-type-grid">
-                <div class="activation-type-card" data-type="day" data-days="1">
-                    <div class="type-name">日卡</div>
-                    <div class="type-desc">1天体验</div>
-                    <div class="type-price">¥0</div>
-                </div>
-                <div class="activation-type-card" data-type="week" data-days="7">
-                    <div class="type-name">周卡</div>
-                    <div class="type-desc">7天体验</div>
-                    <div class="type-price">体验价</div>
-                </div>
-                <div class="activation-type-card active" data-type="month" data-days="30">
-                    <div class="type-name">月卡</div>
-                    <div class="type-desc">30天完整</div>
-                    <div class="type-price">推荐</div>
-                </div>
-                <div class="activation-type-card" data-type="year" data-days="365">
-                    <div class="type-name">年卡</div>
-                    <div class="type-desc">365天全年</div>
-                    <div class="type-price">VIP</div>
-                </div>
-                <div class="activation-type-card" data-type="custom" data-days="0">
-                    <div class="type-name">自定义</div>
-                    <div class="type-desc">手动设定</div>
-                    <div class="type-price">灵活</div>
-                </div>
-            </div>
-            <div class="admin-grid" id="customDaysRow" style="display:none;margin-top:12px">
-                <div class="form-group"><label class="form-label">自定义天数</label><input type="number" class="form-control" id="actCustomDays" value="3" min="1" max="999"></div>
-                <div class="form-group"><label class="form-label">生成数量</label><input type="number" class="form-control" id="actCount" value="5" min="1" max="50"></div>
-            </div>
-            <div class="form-group" id="defaultCountRow" style="margin-top:12px">
-                <label class="form-label">生成数量</label>
-                <input type="number" class="form-control" id="actCountDefault" value="5" min="1" max="50">
-            </div>
-            <button class="btn btn-gold" id="btnGenActivation" style="margin-top:16px;width:100%">生成激活码</button>
+
+        <div id="activationStatsContainer">
+            <p>正在加载数据...</p>
         </div>
-        
-        <div class="activation-filter-bar">
-            <button class="activation-filter-btn active" data-filter="all">全部 (${stats.total})</button>
-            <button class="activation-filter-btn" data-filter="unused">未使用 (${stats.unused})</button>
-            <button class="activation-filter-btn" data-filter="used">已使用 (${stats.used})</button>
-            <button class="activation-filter-btn" data-filter="day">日卡</button>
-            <button class="activation-filter-btn" data-filter="week">周卡</button>
-            <button class="activation-filter-btn" data-filter="month">月卡</button>
-            <button class="activation-filter-btn" data-filter="year">年卡</button>
-        </div>
-        <div id="activationCodeList"></div>`;
-        
-        let selectedType = 'month';
-        let selectedDays = 30;
-        
-        panel.querySelectorAll('.activation-type-card').forEach(card=>{
-            card.addEventListener('click', ()=>{
-                panel.querySelectorAll('.activation-type-card').forEach(c=>c.classList.remove('active'));
-                card.classList.add('active');
-                selectedType = card.dataset.type;
-                selectedDays = parseInt(card.dataset.days);
-                const isCustom = selectedType === 'custom';
-                $('#customDaysRow').style.display = isCustom ? 'grid' : 'none';
-                $('#defaultCountRow').style.display = isCustom ? 'none' : 'block';
-            });
+
+        <div id="activationCodeListContainer" style="margin-top:20px">
+            <h4>激活码列表</h4>
+            <div id="activationCodeList"></div>
+        </div>`;
+
+        // 加载激活码使用数据
+        loadActivationStats();
+
+        $('#btnRefreshActivation').addEventListener('click', () => {
+            loadActivationStats();
         });
-        
-        $('#btnGenActivation').addEventListener('click', ()=>{
-            const isCustom = selectedType === 'custom';
-            const count = parseInt(getVal(isCustom ? 'actCount' : 'actCountDefault')) || 1;
-            const days = isCustom ? (parseInt(getVal('actCustomDays')) || 1) : selectedDays;
-            const codes = generateActivationCode(selectedType, days, count);
-            appState.activationRecords.push(...codes);
-            renderActivationCodeList();
-            showToast(`✅ 已生成 ${count} 个${selectedType==='day'?'日卡':selectedType==='week'?'周卡':selectedType==='month'?'月卡':selectedType==='year'?'年卡':'自定义'}激活码`);
-            trackEvent('activation_code_generate',{type:selectedType,days,count});
-        });
-        
-        panel.querySelectorAll('.activation-filter-btn').forEach(btn=>{
-            btn.addEventListener('click', ()=>{
-                panel.querySelectorAll('.activation-filter-btn').forEach(b=>b.classList.remove('active'));
-                btn.classList.add('active');
-                renderActivationCodeList(btn.dataset.filter);
-            });
-        });
-        
-        renderActivationCodeList();
     } else if(tab==='analytics'){
         const summary = getAnalyticsSummary();
         const totalUsers = Object.keys(summary.uniqueUsers).length;
@@ -530,4 +443,97 @@ function renderActivationCodeList(filter = 'all'){
             }
         });
     });
+}
+
+// ===== 加载激活码使用统计 =====
+async function loadActivationStats() {
+    const container = $('#activationStatsContainer');
+    if (!container) return;
+
+    container.innerHTML = '<p>正在加载数据...</p>';
+
+    try {
+        const WORKER_URL = window.AiApiProxy ? window.AiApiProxy.WORKER_URL : 'https://api.54xiaoguan.cn';
+        const response = await fetch(`${WORKER_URL}/admin/stats`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminPassword: 'xiaoguan2024' })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch stats');
+        }
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.error || 'Unknown error');
+        }
+
+        // 显示统计数据
+        const totalUsers = data.totalUsers || 0;
+        const allStats = data.allStats || [];
+
+        let html = `
+        <div class="activation-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+            <div class="activation-stat-card" style="background:var(--input);padding:16px;border-radius:8px;border:1px solid var(--brd);text-align:center;">
+                <div class="activation-stat-num" style="font-size:28px;font-weight:bold;color:var(--gold);">${totalUsers}</div>
+                <div class="activation-stat-label" style="font-size:12px;color:var(--sub);">总激活用户</div>
+            </div>
+            <div class="activation-stat-card" style="background:var(--input);padding:16px;border-radius:8px;border:1px solid var(--brd);text-align:center;">
+                <div class="activation-stat-num" style="font-size:28px;font-weight:bold;color:var(--ok);">${allStats.filter(s => s.lastUsed).length}</div>
+                <div class="activation-stat-label" style="font-size:12px;color:var(--sub);">活跃用户</div>
+            </div>
+            <div class="activation-stat-card" style="background:var(--input);padding:16px;border-radius:8px;border:1px solid var(--brd);text-align:center;">
+                <div class="activation-stat-num" style="font-size:28px;font-weight:bold;color:var(--accent)">${allStats.reduce((sum, s) => sum + (s.totalChats || 0), 0)}</div>
+                <div class="activation-stat-label" style="font-size:12px;color:var(--sub);">总对话次数</div>
+            </div>
+            <div class="activation-stat-card" style="background:var(--input);padding:16px;border-radius:8px;border:1px solid var(--brd);text-align:center;">
+                <div class="activation-stat-num" style="font-size:28px;font-weight:bold;color:var(--red)">${Math.round(allStats.reduce((sum, s) => sum + (s.totalDuration || 0), 0) / 60)}</div>
+                <div class="activation-stat-label" style="font-size:12px;color:var(--sub);">总使用时长(分钟)</div>
+            </div>
+        </div>`;
+
+        // 显示激活码详细列表
+        if (allStats.length > 0) {
+            html += `<div id="activationCodeList"><h4>用户使用详情</h4>`;
+            allStats.forEach(stat => {
+                const isActive = stat.lastUsed && (Date.now() - stat.lastUsed < 7 * 24 * 60 * 60 * 1000);
+                const statusColor = isActive ? 'var(--ok)' : 'var(--sub)';
+                const statusText = isActive ? '活跃' : ' inactive';
+
+                html += `
+                <div class="activation-code-row" style="background:var(--input);padding:12px;margin-bottom:8px;border-radius:8px;border:1px solid var(--brd);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                        <div>
+                            <strong style="color:var(--gold);font-size:14px;">${stat.activationCode}</strong>
+                            <span style="color:${statusColor};font-size:12px;margin-left:8px;">● ${statusText}</span>
+                        </div>
+                        <div style="font-size:12px;color:var(--sub);">
+                            首次使用: ${stat.firstUsed ? new Date(stat.firstUsed).toLocaleDateString('zh-CN') : '未使用'} |
+                            最后使用: ${stat.lastUsed ? new Date(stat.lastUsed).toLocaleDateString('zh-CN') : '未使用'}
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:8px;font-size:12px;">
+                        <div>会话次数: <strong>${stat.totalSessions || 0}</strong></div>
+                        <div>对话次数: <strong>${stat.totalChats || 0}</strong></div>
+                        <div>总时长: <strong>${Math.round((stat.totalDuration || 0) / 60)}分钟</strong></div>
+                    </div>
+                    ${stat.featureUsage && Object.keys(stat.featureUsage).length > 0 ? `
+                    <div style="margin-top:8px;font-size:12px;color:var(--sub);">
+                        功能使用: ${Object.entries(stat.featureUsage).map(([k, v]) => `${k}(${v}次)`).join(', ')}
+                    </div>` : ''}
+                </div>`;
+            });
+            html += '</div>';
+        } else {
+            html += '<p style="color:var(--sub);text-align:center;padding:20px;">暂无用户数据</p>';
+        }
+
+        container.innerHTML = html;
+
+    } catch(e) {
+        console.error('[加载统计失败]', e);
+        container.innerHTML = `<p style="color:var(--red);">加载失败: ${e.message}</p><p style="font-size:12px;color:var(--sub);">请确保Worker已部署并更新到最新版本</p>`;
+    }
 }
