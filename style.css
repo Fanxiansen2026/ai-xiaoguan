@@ -123,6 +123,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-
 .wx-send-btn:disabled{opacity:.5;cursor:not-allowed}
 .wx-extra-panel{display:none;padding:16px;background:var(--card);border-top:1px solid var(--brd);grid-template-columns:repeat(4,1fr);gap:16px;flex-shrink:0}
 .wx-extra-panel.show{display:grid}
+.upload-tip{font-size:11px;color:var(--sub);padding:6px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;margin:6px 16px 0}
 .wx-extra-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;color:var(--sub);font-size:11px}
 .wx-extra-item:hover{color:var(--gold)}
 .wx-extra-icon{width:48px;height:48px;background:var(--input);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid var(--brd)}

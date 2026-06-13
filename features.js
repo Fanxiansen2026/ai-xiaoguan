@@ -131,6 +131,7 @@ function initWorkspace(featureId){
         <div class="chat-container">
             <div class="chat-messages" id="chatMessages"></div>
             ${showUpload?`<div class="file-list" id="fileList"></div><div class="wx-extra-panel" id="wxExtraPanel">
+                <div class="upload-tip" id="uploadTip">${f.id==='analysis'?'📸 上传聊天记录截图（支持5张内，每张≤3MB）':f.id==='selling'?'📸 上传产品介绍/海报图片（支持5张内，每张≤3MB）':f.id==='resume'?'📸 上传现有简历截图（支持5张内，每张≤3MB）':'📸 上传相关图片（支持5张内，每张≤3MB）'}</div>
                 ${f.allowImage?'<div class="wx-extra-item" data-type="image"><div class="wx-extra-icon">🖼️</div>图片</div>':''}
                 ${f.allowVideo?'<div class="wx-extra-item" data-type="video"><div class="wx-extra-icon">🎥</div>视频</div>':''}
                 ${f.allowFile?'<div class="wx-extra-item" data-type="file"><div class="wx-extra-icon">📄</div>文件</div>':''}

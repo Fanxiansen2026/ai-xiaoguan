@@ -4,8 +4,26 @@ let lastUserPrompt = '';
 function handleFileChange(e){
     const files=Array.from(e.target.files);
     const f=appState.features.find(x=>x.id===appState.currentFeatureId);
-    if(f.maxFiles && (appState.uploadedFiles.length + files.length) > f.maxFiles){showToast(`❌ 最多上传${f.maxFiles}个文件`);return;}
-    appState.uploadedFiles.push(...files);
+    const MAX_SIZE_MB = 3;
+    const allowedTypes = ['image/jpeg','image/png','image/gif','image/webp','image/bmp'];
+    // 用功能配置的上限（不超过5）
+    const maxFiles = Math.min(f.maxFiles || 5, 5);
+    // 数量检查
+    if(appState.uploadedFiles.length + files.length > maxFiles){
+        showToast(`❌ 最多上传${maxFiles}张图片`);return;
+    }
+    // 大小和类型检查
+    for(const file of files){
+        if(file.size > MAX_SIZE_MB * 1024 * 1024){
+            showToast(`❌ ${file.name} 超过${MAX_SIZE_MB}MB，已跳过`);
+            continue;
+        }
+        if(!allowedTypes.includes(file.type)){
+            showToast(`❌ ${file.name} 不是有效图片格式，已跳过`);
+            continue;
+        }
+        appState.uploadedFiles.push(file);
+    }
     renderFileList();
     e.target.value = '';
 }
@@ -107,7 +125,8 @@ async function handleGenerate(isRefresh){
     const textMsg={type:'text',text:DEFENSE_PROMPT+f.prompt+'\n\n用户输入：\n'+userPrompt};
     let messages=[{role:'user',content:[textMsg]}];let model='qwen-plus';
 
-    if(appState.uploadedFiles.length>0&&appState.apiKey){
+    // 有图片时用视觉模型，无图片时用普通模型（API Key 已迁移到后端，走代理无需前端 Key）
+    if(appState.uploadedFiles.length>0){
         model='qwen-vl-max';
         for(const file of appState.uploadedFiles){const base64=await fileToBase64(file);messages[0].content.push({type:'image_url',image_url:{url:base64}});}
     }
@@ -276,7 +295,19 @@ function handleVoiceEnd(e){
 }
 function initSpeechRecognition(){
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(SR){recognition=new SR();recognition.lang='zh-CN';recognition.continuous=false;
+    if(!SR){
+        // 方案B：不支持时隐藏语音按钮，提示用键盘语音
+        document.querySelectorAll('.wx-voice-btn').forEach(btn=>{
+            btn.style.display='none';
+        });
+        // 修改输入框 placeholder 提示
+        const inputEl=document.getElementById('wxInputDisplay');
+        if(inputEl && inputEl.placeholder && !inputEl.placeholder.includes('键盘')){
+            inputEl.placeholder='请输入文字，或点击键盘语音输入';
+        }
+        return;
+    }
+    recognition=new SR();recognition.lang='zh-CN';recognition.continuous=false;
     recognition.onresult=e=>{const btn=document.querySelector('.wx-voice-btn.recording');if(btn){const target=$(`#${btn.dataset.target}`);if(target){target.value+=e.results[0][0].transcript;updateCount(target);}}};
-    recognition.onerror=()=>{document.querySelectorAll('.wx-voice-btn').forEach(b=>b.classList.remove('recording'));};}
+    recognition.onerror=()=>{document.querySelectorAll('.wx-voice-btn').forEach(b=>b.classList.remove('recording'));};
 }
