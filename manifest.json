@@ -1,11 +1,11 @@
 {
   "name": "AI销冠驾驶舱",
   "short_name": "销冠军师",
-  "start_url": ".",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0B0F19",
   "theme_color": "#0B0F19",
-  "orientation": "portrait",
+  "orientation": "any",
   "icons": [
     {
       "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%23F59E0B' width='192' height='192' rx='40'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='80' font-weight='bold' fill='%23000'%3E舱%3C/text%3E%3C/svg%3E",
