@@ -456,11 +456,13 @@ function bindGlobalEvents(){
     });
     document.addEventListener('input',e=>{if(e.target.classList.contains('form-control')&&e.target.id)updateCount(e.target);});
     document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&e.target.id==='roleplayInput'){e.preventDefault();handleRoleplaySend();}});
-    document.addEventListener('mousedown',handleVoiceStart);
-    document.addEventListener('touchstart',handleVoiceStart,{passive:false});
-    document.addEventListener('mouseup',handleVoiceEnd);
-    document.addEventListener('touchend',handleVoiceEnd);
-    document.addEventListener('touchcancel',handleVoiceEnd);
+    // 语音按钮点击事件（toggle 模式）
+    document.addEventListener('click',e=>{
+        if(e.target.closest('#wxVoiceBtn')){
+            e.preventDefault();
+            if(window.toggleVoiceRecording) window.toggleVoiceRecording(e.target.closest('#wxVoiceBtn'));
+        }
+    });
     document.addEventListener('change',e=>{if(e.target.id==='fileInput')handleFileChange(e);});
 }
 
