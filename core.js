@@ -216,13 +216,19 @@ function switchPage(page,featureId=null){
     }
     if(page==='profile'){initProfile(); trackPageView('profile');}
     if(page==='admin'){
-        // 先渲染admin页面骨架
-        $('#mainContent').innerHTML = `
-        <div id="adminPage">
-            <div id="adminTabs" style="display:flex;gap:0;overflow-x:auto;margin-bottom:20px;border-bottom:1px solid var(--brd);"></div>
-            <div id="adminPanel"></div>
-        </div>`;
-        initAdmin();
+        // ★★★ 全局密码保护：进入后台管理前先验证 ★★★
+        const _isAuth = typeof isAdminAuth === 'function' && isAdminAuth();
+        if(!_isAuth && typeof promptAdminPassword === 'function'){
+            // 未验证，弹出密码框，验证通过后再渲染
+            promptAdminPassword(() => {
+                renderAdminPage();
+                trackPageView('admin');
+            });
+            closeSidebar();
+            return; // 先返回，等密码验证通过后再渲染
+        }
+        // 已验证或无需验证，直接渲染
+        renderAdminPage();
         trackPageView('admin');
     }
     closeSidebar();
@@ -1020,4 +1026,15 @@ function generateSharePoster(userName, featureName, callback) {
         const url = URL.createObjectURL(blob);
         callback(url);
     });
+}
+
+
+// 渲染后台管理页面（抽离出来，供密码验证通过后调用）
+function renderAdminPage(){
+    $('#mainContent').innerHTML = `
+        <div id="adminPage">
+            <div id="adminTabs" style="display:flex;gap:0;overflow-x:auto;margin-bottom:20px;border-bottom:1px solid var(--brd);"></div>
+            <div id="adminPanel"></div>
+        </div>`;
+    if(typeof initAdmin === 'function') initAdmin();
 }
