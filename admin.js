@@ -9,20 +9,74 @@ function isAdminAuthed() {
   return sessionStorage.getItem('admin_auth') === '1';
 }
 
-// 验证管理员密码
+// 全局变量：存储当前密码验证通过后的回调函数
+let _adminPwdCallback = null;
+
+// 验证管理员密码 —— 使用自定义弹窗（替代prompt，兼容手机端）
 function promptAdminPassword(callback) {
   if (isAdminAuthed()) {
-   callback();
+    try { callback(); } catch(e) { console.error('[管理员回调执行失败]', e); }
     return;
   }
 
-  const pwd = prompt('🔒 请输入管理员密码：');
+  const modal = document.getElementById('adminPwdModal');
+  const input = document.getElementById('adminPwdInput');
+  const err = document.getElementById('adminPwdError');
+
+  if (!modal || !input) {
+    // 降级：如果找不到弹窗元素，用 prompt 兜底
+    const pwd = prompt('🔒 请输入管理员密码：');
+    if (pwd === ADMIN_PASSWORD) {
+      sessionStorage.setItem('admin_auth', '1');
+      try { callback(); } catch(e) { console.error('[管理员回调执行失败]', e); }
+    } else if (pwd !== null) {
+      alert('❌ 密码错误！');
+    }
+    return;
+  }
+
+  // 保存回调函数（供全局处理函数调用）
+  _adminPwdCallback = callback;
+
+  // 显示弹窗
+  input.value = '';
+  err.style.display = 'none';
+  modal.style.display = 'flex';
+
+  // 自动聚焦
+  setTimeout(() => input.focus(), 100);
+}
+
+// 全局函数：确认管理员密码（供HTML中的onclick调用）
+function confirmAdminPassword() {
+  const input = document.getElementById('adminPwdInput');
+  const err = document.getElementById('adminPwdError');
+  const modal = document.getElementById('adminPwdModal');
+
+  if (!input || !modal) return;
+
+  const pwd = input.value;
   if (pwd === ADMIN_PASSWORD) {
     sessionStorage.setItem('admin_auth', '1');
-    callback();
-  } else if (pwd !== null) {
-    alert('❌ 密码错误！');
+    modal.style.display = 'none';
+    const cb = _adminPwdCallback;
+    _adminPwdCallback = null;
+    if (cb) {
+      try { cb(); } catch(e) { console.error('[管理员回调执行失败]', e); }
+    }
+  } else {
+    err.textContent = '❌ 密码错误，请重试';
+    err.style.display = 'block';
+    input.value = '';
+    input.focus();
   }
+}
+
+// 全局函数：取消管理员密码输入
+function cancelAdminPassword() {
+  const modal = document.getElementById('adminPwdModal');
+  if (modal) modal.style.display = 'none';
+  _adminPwdCallback = null;
 }
 
 // HTML转义工具函数
@@ -61,26 +115,52 @@ function handleFeatureSort(btn){
 }
 
 function renderAdminPanel(tab){
-    const panel=$('#adminPanel');$$('.admin-tab').forEach(t=>t.classList.toggle('active',t.dataset.admin===tab));
+    const panel=$('#adminPanel');
+    if (!panel) return; // 安全检查
+    
+    // 更新tab的active状态
+    $$(`.admin-tab`).forEach(t=>{
+        if(t.dataset && t.dataset.admin){
+            t.classList.toggle('active', t.dataset.admin === tab);
+        }
+    });
     
     // ★★★ 敏感页面需要密码保护 ★★★
     const protectedTabs = ['activation', 'analytics', 'export'];
-    if (protectedTabs.includes(tab)) {
-        promptAdminPassword(() => {
-            _renderPanel(tab, panel);
-        });
-        // 显示一个占位提示（等密码输入后替换）
+    if (protectedTabs.includes(tab) && !isAdminAuthed()) {
+        // 显示占位提示
         panel.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--sub);">
             <div style="font-size:48px;margin-bottom:16px">🔒</div>
             <p style="font-size:18px;font-weight:600;color:var(--txt);margin-bottom:8px;">需要管理员权限</p>
-            <p style="font-size:13px;">此页面需要管理员密码才能访问<br>请点击上方选项卡重新触发密码输入</p>
-            <button class="btn btn-gold" onclick="promptAdminPassword(()=>renderAdminPanel('${tab}'))" style="margin-top:20px">输入密码解锁</button>
+            <p style="font-size:13px;">此页面需要管理员密码才能访问</p>
         </div>`;
-        $$(`[data-admin="${tab}"]`).classList.add('active');
+        // 触发密码输入
+        promptAdminPassword(() => {
+            _renderPanelSafe(tab);
+        });
         return;
     }
     
-    _renderPanel(tab, panel);
+    _renderPanelSafe(tab);
+}
+
+// 安全包装函数：渲染面板并捕获错误
+function _renderPanelSafe(tab) {
+    const panel = $(`#adminPanel`);
+    if (!panel) return;
+    
+    try {
+        _renderPanel(tab, panel);
+        
+        // 渲染完成后绑定事件
+        bindAdminEvents(tab);
+    } catch(e) {
+        console.error(`[渲染面板失败] tab=${tab}`, e);
+        panel.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red);">
+            <p>❌ 渲染失败: ${e.message}</p>
+            <button class="btn btn-outline" onclick="renderAdminPanel('${tab}')" style="margin-top:16px">重试</button>
+        </div>`;
+    }
 }
 
 // 实际渲染面板内容
@@ -649,4 +729,118 @@ function addScript(){appState.scripts.push({id:Date.now(),cat:getVal('sCat'),tit
 function renderActivationCodeList(filter = 'all'){
     // 旧函数保留兼容，现在主要用 loadActivationCodeGrid
     loadActivationCodeGrid();
+}
+
+// 绑定 admin 页面内的事件（针对动态生成的元素）
+function bindAdminEvents(tab) {
+    if (!tab) return;
+    
+    if (tab === 'activation') {
+        const btnRefresh = document.getElementById('btnRefreshCodes');
+        if (btnRefresh) btnRefresh.onclick = () => loadActivationCodeGrid();
+        
+        const filterType = document.getElementById('codeFilterType');
+        if (filterType) filterType.onchange = () => loadActivationCodeGrid();
+        
+        const filterStatus = document.getElementById('codeFilterStatus');
+        if (filterStatus) filterStatus.onchange = () => loadActivationCodeGrid();
+        
+    } else if (tab === 'analytics') {
+        const btnRefresh = document.getElementById('btnRefreshAnalytics');
+        if (btnRefresh) btnRefresh.onclick = () => loadAnalyticsDashboard();
+        
+    } else if (tab === 'scripts') {
+        const btnAdd = document.getElementById('btnAddScript');
+        if (btnAdd) btnAdd.onclick = addScript;
+        
+    } else if (tab === 'global') {
+        const btnSave = document.getElementById('btnSaveGlobal');
+        if (btnSave) btnSave.onclick = saveGlobalConfig;
+        
+        const btnExport = document.getElementById('btnExport');
+        if (btnExport) btnExport.onclick = () => {
+            const area = document.getElementById('exportArea');
+            if (area) area.value = JSON.stringify(appState, null, 2);
+            showToast('✅ 已生成，请复制保存');
+        };
+        
+        const btnImport = document.getElementById('btnImport');
+        if (btnImport) btnImport.onclick = () => {
+            try {
+                const area = document.getElementById('importArea');
+                if (!area) return;
+                const data = JSON.parse(area.value);
+                if(data.user) Object.assign(appState.user, data.user);
+                if(data.globalConfig) Object.assign(appState.globalConfig, data.globalConfig);
+                if(data.navGroups) appState.navGroups = data.navGroups;
+                if(data.ranks) appState.ranks = data.ranks;
+                if(data.features) appState.features = data.features;
+                if(data.scripts) appState.scripts = data.scripts;
+                if(data.apiKey) appState.apiKey = data.apiKey;
+                renderNav(); renderHome(); renderAdminPanel('global'); updateUserUI();
+                showToast('✅ 导入成功');
+            } catch(e) {
+                showToast('❌ 格式错误');
+            }
+        };
+        
+    } else if (tab === 'features') {
+        document.querySelectorAll('.feature-sort-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const action = btn.dataset.action;
+                if(action === 'config'){ renderAdminPanel('config_' + btn.dataset.id); return; }
+                const gi = parseInt(btn.dataset.gi), fi = parseInt(btn.dataset.fi);
+                const g = appState.navGroups[gi];
+                if(action === 'up'){ if(fi <= 0) return; [g.features[fi], g.features[fi-1]] = [g.features[fi-1], g.features[fi]]; }
+                else if(action === 'down'){ if(fi >= g.features.length - 1) return; [g.features[fi], g.features[fi+1]] = [g.features[fi+1], g.features[fi]]; }
+                renderNav(); renderHome(); renderAdminPanel('features'); showToast('✅ 排序已保存');
+            };
+        });
+        
+    } else if (tab && tab.startsWith('config_')) {
+        const btnSave = document.getElementById('btnSaveConf');
+        if (btnSave) btnSave.onclick = saveFeatureConfig;
+        
+    } else if (tab === 'nav') {
+        const btnSave = document.getElementById('btnSaveNav');
+        if (btnSave) btnSave.onclick = () => {
+            document.querySelectorAll('.nav-group-input').forEach(input => {
+                appState.navGroups[input.dataset.idx].name = input.value;
+            });
+            renderNav();
+            showToast('✅ 分组名称已保存');
+        };
+        
+    } else if (tab === 'ranks') {
+        const btnSave = document.getElementById('btnSaveRanks');
+        if (btnSave) btnSave.onclick = () => {
+            document.querySelectorAll('.rank-name').forEach(input => {
+                const i = input.dataset.idx;
+                appState.ranks[i].name = input.value;
+                const expInput = document.querySelector(`.rank-exp[data-idx="${i}"]`);
+                appState.ranks[i].minExp = expInput ? (parseInt(expInput.value) || 0) : 0;
+                const iconInput = document.querySelector(`.rank-icon[data-idx="${i}"]`);
+                appState.ranks[i].icon = iconInput ? (iconInput.value || '') : '';
+                const perkInput = document.querySelector(`.rank-perk[data-idx="${i}"]`);
+                appState.ranks[i].perk = perkInput ? (perkInput.value || '') : '';
+            });
+            appState.ranks.sort((a,b) => a.minExp - b.minExp);
+            updateUserUI();
+            showToast('✅ 段位设置已保存');
+        };
+        
+    } else if (tab === 'export') {
+        const btnChat = document.getElementById('btnExportChat');
+        if (btnChat) btnChat.onclick = () => exportData('chat');
+        
+        const btnScripts = document.getElementById('btnExportScripts');
+        if (btnScripts) btnScripts.onclick = () => exportData('scripts');
+        
+        const btnProfile = document.getElementById('btnExportProfile');
+        if (btnProfile) btnProfile.onclick = () => exportData('profile');
+        
+        const btnFull = document.getElementById('btnExportFull');
+        if (btnFull) btnFull.onclick = () => exportData('full');
+    }
 }
