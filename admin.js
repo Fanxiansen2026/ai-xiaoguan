@@ -129,9 +129,9 @@ function renderAdminPanel(tab){
     const protectedTabs = ['activation', 'analytics', 'export'];
     if (protectedTabs.includes(tab) && !isAdminAuthed()) {
         // 显示占位提示
-        panel.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--sub);">
+        panel.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--sub, #9CA3AF);">
             <div style="font-size:48px;margin-bottom:16px">🔒</div>
-            <p style="font-size:18px;font-weight:600;color:var(--txt);margin-bottom:8px;">需要管理员权限</p>
+            <p style="font-size:18px;font-weight:600;color:var(--txt, #F3F4F6);margin-bottom:8px;">需要管理员权限</p>
             <p style="font-size:13px;">此页面需要管理员密码才能访问</p>
         </div>`;
         // 触发密码输入
@@ -156,7 +156,7 @@ function _renderPanelSafe(tab) {
         bindAdminEvents(tab);
     } catch(e) {
         console.error(`[渲染面板失败] tab=${tab}`, e);
-        panel.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red);">
+        panel.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red, #EF4444);">
             <p>❌ 渲染失败: ${e.message}</p>
             <button class="btn btn-outline" onclick="renderAdminPanel('${tab}')" style="margin-top:16px">重试</button>
         </div>`;
@@ -189,7 +189,7 @@ function _renderPanel(tab, panel) {
         <div class="form-group"><label class="form-label">控制台大标题</label><input class="form-control" id="gc_title" value="${gc.title}"></div>
         <div class="form-group"><label class="form-label">控制台描述</label><textarea class="form-control" id="gc_desc" style="min-height:60px">${gc.desc}</textarea></div>
         <div class="form-group"><label class="form-label">轮播金句 (每行一条)</label><textarea class="form-control" id="gc_fillers" style="min-height:80px">${gc.fillers.join('\n')}</textarea></div>
-        <hr style="border-color:var(--brd);margin:20px 0">
+        <hr style="border-color:var(--brd, #2A3441);margin:20px 0">
         <h3>🚀 首页 Hero 设置</h3>
         <div class="admin-grid">
             <div class="form-group"><label class="form-label">Hero 大标题</label><input class="form-control" id="gc_heroTitle" value="${gc.heroTitle}"></div>
@@ -201,7 +201,7 @@ function _renderPanel(tab, panel) {
             <div class="form-group"><label class="form-label">统计3 数值</label><input class="form-control" id="gc_stat3Val" value="${gc.stat3Val}"></div>
             <div class="form-group"><label class="form-label">统计3 标签</label><input class="form-control" id="gc_stat3Lbl" value="${gc.stat3Lbl}"></div>
         </div>
-        <hr style="border-color:var(--brd);margin:20px 0">
+        <hr style="border-color:var(--brd, #2A3441);margin:20px 0">
         <h3>🌟 用户好评管理 (格式：身份|好评内容，每行一条)</h3>
         <div class="form-group"><textarea class="form-control" id="gc_reviews" style="min-height:150px">${gc.reviews.join('\n')}</textarea></div>
         <button class="btn btn-gold" id="btnSaveGlobal">保存全局设置</button>
@@ -215,11 +215,11 @@ function _renderPanel(tab, panel) {
         $('#btnSaveNav').addEventListener('click',()=>{$$('.nav-group-input').forEach(input=>{appState.navGroups[input.dataset.idx].name=input.value;});renderNav();showToast('✅ 分组名称已保存');});
     } else if(tab==='ranks'){
         panel.innerHTML=`<h3>🏆 段位系统管理</h3>`;
-        appState.ranks.forEach((r,i)=>{panel.innerHTML+=`<div style="background:var(--input);padding:12px;border-radius:8px;margin-bottom:12px;border:1px solid var(--brd);"><div class="admin-grid"><div class="form-group"><label class="form-label">段位 ${i+1} 名称</label><input class="form-control rank-name" data-idx="${i}" value="${r.name}"></div><div class="form-group"><label class="form-label">所需经验</label><input type="number" class="form-control rank-exp" data-idx="${i}" value="${r.minExp}"></div><div class="form-group"><label class="form-label">图标</label><input class="form-control rank-icon" data-idx="${i}" value="${r.icon}"></div></div><div class="form-group"><label class="form-label">段位特权描述</label><input class="form-control rank-perk" data-idx="${i}" value="${r.perk}"></div></div>`;});
+        appState.ranks.forEach((r,i)=>{panel.innerHTML+=`<div style="background:var(--input, #1A2235);padding:12px;border-radius:8px;margin-bottom:12px;border:1px solid var(--brd, #2A3441);"><div class="admin-grid"><div class="form-group"><label class="form-label">段位 ${i+1} 名称</label><input class="form-control rank-name" data-idx="${i}" value="${r.name}"></div><div class="form-group"><label class="form-label">所需经验</label><input type="number" class="form-control rank-exp" data-idx="${i}" value="${r.minExp}"></div><div class="form-group"><label class="form-label">图标</label><input class="form-control rank-icon" data-idx="${i}" value="${r.icon}"></div></div><div class="form-group"><label class="form-label">段位特权描述</label><input class="form-control rank-perk" data-idx="${i}" value="${r.perk}"></div></div>`;});
         panel.innerHTML+=`<button class="btn btn-gold" id="btnSaveRanks">保存段位设置</button>`;
         $('#btnSaveRanks').addEventListener('click',()=>{$$('.rank-name').forEach(input=>{const i=input.dataset.idx;appState.ranks[i].name=input.value;appState.ranks[i].minExp=parseInt($('.rank-exp[data-idx="'+i+'"]').value)||0;appState.ranks[i].icon=$('.rank-icon[data-idx="'+i+'"]').value;appState.ranks[i].perk=$('.rank-perk[data-idx="'+i+'"]').value;});appState.ranks.sort((a,b)=>a.minExp-b.minExp);updateUserUI();showToast('✅ 段位设置已保存');});
     } else if(tab==='scripts'){
-        panel.innerHTML=`<h3>话术库管理</h3><div class="admin-grid"><div class="form-group"><label class="form-label">分类</label><input class="form-control" id="sCat"></div><div class="form-group"><label class="form-label">标题</label><input class="form-control" id="sTitle"></div></div><div class="form-group"><label class="form-label">内容</label><textarea class="form-control" id="sContent"></textarea></div><button class="btn btn-gold" id="btnAddScript">添加话术</button><hr style="border-color:var(--brd);margin:20px 0"><div id="adminScriptsList"></div>`;
+        panel.innerHTML=`<h3>话术库管理</h3><div class="admin-grid"><div class="form-group"><label class="form-label">分类</label><input class="form-control" id="sCat"></div><div class="form-group"><label class="form-label">标题</label><input class="form-control" id="sTitle"></div></div><div class="form-group"><label class="form-label">内容</label><textarea class="form-control" id="sContent"></textarea></div><button class="btn btn-gold" id="btnAddScript">添加话术</button><hr style="border-color:var(--brd, #2A3441);margin:20px 0"><div id="adminScriptsList"></div>`;
         const list=$('#adminScriptsList');
         const grouped = {};
         appState.scripts.forEach(s=>{if(!grouped[s.cat])grouped[s.cat]=[];grouped[s.cat].push(s);});
@@ -240,17 +240,17 @@ function _renderPanel(tab, panel) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
             <div>
                 <h3 style="margin:0;display:inline">🔐 激活码管理</h3>
-                <span style="color:var(--sub);font-size:12px;margin-left:8px;" id="codeCountBadge">加载中...</span>
+                <span style="color:var(--sub, #9CA3AF);font-size:12px;margin-left:8px;" id="codeCountBadge">加载中...</span>
             </div>
             <div style="display:flex;gap:8px;">
                 <button class="btn btn-outline" id="btnRefreshCodes" style="padding:6px 14px;font-size:12px">🔄 刷新</button>
-                <select id="codeFilterType" style="background:var(--input);color:var(--txt);border:1px solid var(--brd);border-radius:6px;padding:6px 10px;font-size:12px;">
+                <select id="codeFilterType" style="background:var(--input, #1A2235);color:var(--txt, #F3F4F6);border:1px solid var(--brd, #2A3441);border-radius:6px;padding:6px 10px;font-size:12px;">
                     <option value="all">全部类型</option>
                     <option value="trial7">7日体验卡</option>
                     <option value="vip30">月卡VIP</option>
                     <option value="trial1">日卡体验</option>
                 </select>
-                <select id="codeFilterStatus" style="background:var(--input);color:var(--txt);border:1px solid var(--brd);border-radius:6px;padding:6px 10px;font-size:12px;">
+                <select id="codeFilterStatus" style="background:var(--input, #1A2235);color:var(--txt, #F3F4F6);border:1px solid var(--brd, #2A3441);border-radius:6px;padding:6px 10px;font-size:12px;">
                     <option value="all">全部状态</option>
                     <option value="unused">未使用</option>
                     <option value="active">使用中</option>
@@ -261,27 +261,27 @@ function _renderPanel(tab, panel) {
 
         <!-- 统计概览 -->
         <div id="codeOverviewCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;">
-            <div style="text-align:center;padding:16px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:28px;font-weight:bold;color:var(--gold)" id="statTotal">-</div>
-                <div style="font-size:11px;color:var(--sub)">总激活码</div>
+            <div style="text-align:center;padding:16px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
+                <div style="font-size:28px;font-weight:bold;color:var(--gold, #F59E0B)" id="statTotal">-</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF)">总激活码</div>
             </div>
-            <div style="text-align:center;padding:16px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:28px;font-weight:bold;color:var(--ok)" id="statActive">-</div>
-                <div style="font-size:11px;color:var(--sub)">激活中</div>
+            <div style="text-align:center;padding:16px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
+                <div style="font-size:28px;font-weight:bold;color:var(--ok, #10B981)" id="statActive">-</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF)">激活中</div>
             </div>
-            <div style="text-align:center;padding:16px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:28px;font-weight:bold;color:var(--sub);" id="statUnused">-</div>
-                <div style="font-size:11px;color:var(--sub)">未使用</div>
+            <div style="text-align:center;padding:16px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
+                <div style="font-size:28px;font-weight:bold;color:var(--sub, #9CA3AF);" id="statUnused">-</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF)">未使用</div>
             </div>
-            <div style="text-align:center;padding:16px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:28px;font-weight:bold;color:var(--red)" id="statDevices">-</div>
-                <div style="font-size:11px;color:var(--sub)">绑定设备</div>
+            <div style="text-align:center;padding:16px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
+                <div style="font-size:28px;font-weight:bold;color:var(--red, #EF4444)" id="statDevices">-</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF)">绑定设备</div>
             </div>
         </div>
 
         <!-- 激活码列表 -->
         <div id="codeGridContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;">
-            <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--sub);">正在加载激活码数据...</div>
+            <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--sub, #9CA3AF);">正在加载激活码数据...</div>
         </div>`;
 
         loadActivationCodeGrid();
@@ -298,7 +298,7 @@ function _renderPanel(tab, panel) {
             <button class="btn btn-outline" id="btnRefreshAnalytics" style="padding:6px 14px;font-size:12px">🔄 刷新数据</button>
         </div>
         <div id="analyticsContent">
-            <div style="text-align:center;padding:40px;color:var(--sub);">正在加载数据...</div>
+            <div style="text-align:center;padding:40px;color:var(--sub, #9CA3AF);">正在加载数据...</div>
         </div>`;
         loadAnalyticsDashboard();
         $('#btnRefreshAnalytics')?.addEventListener('click', () => loadAnalyticsDashboard());
@@ -318,7 +318,7 @@ function _renderPanel(tab, panel) {
         $('#btnExportFull').addEventListener('click',()=>exportData('full'));
     } else if(tab==='features'){
         panel.innerHTML = `<h3>📋 功能排序</h3>
-        <div style="font-size:12px;color:var(--sub);margin-bottom:16px">💡 点击排序调整功能顺序，点击"配置"编辑详情。</div>`;
+        <div style="font-size:12px;color:var(--sub, #9CA3AF);margin-bottom:16px">💡 点击排序调整功能顺序，点击"配置"编辑详情。</div>`;
         
         appState.navGroups.forEach((g, gi) => {
             let itemsHtml = '';
@@ -327,7 +327,7 @@ function _renderPanel(tab, panel) {
                 if(!f) return;
                 itemsHtml += `<div class="feature-sort-item">
                     <span style="font-size:18px;margin-right:8px">${f.icon}</span>
-                    <span style="font-weight:600;color:var(--txt);flex:1">${f.name}</span>
+                    <span style="font-weight:600;color:var(--txt, #F3F4F6);flex:1">${f.name}</span>
                     <span class="feature-tag ${PAYWALL_FEATURES.includes(f.id) ? 'vip' : 'free'}" style="margin-right:8px">${PAYWALL_FEATURES.includes(f.id) ? 'VIP' : '免费'}</span>
                     <div style="display:flex;gap:4px;margin-left:8px">
                         <button class="feature-sort-btn" data-action="up" data-gi="${gi}" data-fi="${fi}">↑</button>
@@ -340,7 +340,7 @@ function _renderPanel(tab, panel) {
             panel.innerHTML += `<div class="feature-sort-group" data-group="${gi}">
                 <div class="feature-sort-group-title" onclick="this.parentElement.classList.toggle('collapsed')">
                     <span style="font-weight:600">${g.name}</span>
-                    <span style="color:var(--sub);font-size:12px">${g.features.length}个功能</span>
+                    <span style="color:var(--sub, #9CA3AF);font-size:12px">${g.features.length}个功能</span>
                     <span style="margin-left:auto;font-size:12px">▼</span>
                 </div>
                 <div class="feature-sort-group-items">${itemsHtml}</div>
@@ -400,7 +400,7 @@ function _renderPanel(tab, panel) {
 async function loadActivationCodeGrid() {
     const grid = document.getElementById('codeGridContainer');
     if (!grid) return;
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--sub);">⏳ 正在加载...</div>';
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--sub, #9CA3AF);">⏳ 正在加载...</div>';
 
     try {
         const WORKER_URL = window.AiApiProxy?.WORKER_URL || 'https://api.54xiaoguan.cn';
@@ -433,7 +433,7 @@ async function loadActivationCodeGrid() {
 
         // 渲染卡片网格
         if (filtered.length === 0) {
-            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--sub);">📭 没有符合条件的激活码</div>';
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--sub, #9CA3AF);">📭 没有符合条件的激活码</div>';
             return;
         }
 
@@ -442,22 +442,22 @@ async function loadActivationCodeGrid() {
             // 类型颜色映射
             const typeColors = { trial7: '#3B82F6', vip30: '#F59E0B', trial1: '#10B981' };
             const typeLabels = { trial7: '7日卡', vip30: '月卡', trial1: '日卡' };
-            const statusColors = { active: 'var(--ok)', unused: 'var(--sub)', expired: 'var(--red)' };
+            const statusColors = { active: 'var(--ok, #10B981)', unused: 'var(--sub, #9CA3AF)', expired: 'var(--red, #EF4444)' };
             const statusLabels = { active: '使用中', unused: '未使用', expired: '已过期' };
-            const color = typeColors[c.type] || 'var(--gold)';
+            const color = typeColors[c.type] || 'var(--gold, #F59E0B)';
 
             // 设备信息
             const devInfo = c.devices && c.devices.length > 0 
                 ? c.devices.map(d => `
                     <div style="font-size:11px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">
-                        <span style="color:var(--sub)">📱 ${d.deviceId.slice(0, 16)}...</span>
-                        <span style="float:right;color:var(--ok)">活跃</span>
-                        <div style="color:var(--sub);margin-top:2px">会话:${d.sessions}次 | 对话:${d.chats}次 | 时长:${d.totalDuration || 0}分钟</div>
+                        <span style="color:var(--sub, #9CA3AF)">📱 ${d.deviceId.slice(0, 16)}...</span>
+                        <span style="float:right;color:var(--ok, #10B981)">活跃</span>
+                        <div style="color:var(--sub, #9CA3AF);margin-top:2px">会话:${d.sessions}次 | 对话:${d.chats}次 | 时长:${d.totalDuration || 0}分钟</div>
                     </div>`).join('')
-                : '<div style="font-size:11px;color:var(--sub);padding:8px 0">未绑定设备</div>';
+                : '<div style="font-size:11px;color:var(--sub, #9CA3AF);padding:8px 0">未绑定设备</div>';
 
             html += `
-            <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);overflow:hidden;transition:transform .2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+            <div style="background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);overflow:hidden;transition:transform .2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
                 <div style="padding:14px 14px 10px;display:flex;justify-content:space-between;align-items:flex-start">
                     <div>
                         <div style="font-family:monospace;font-size:15px;font-weight:700;color:${color};letter-spacing:.5px">${c.code}</div>
@@ -467,16 +467,16 @@ async function loadActivationCodeGrid() {
                             ${c.deviceCount > 1 ? `<span style="font-size:10px;background:#EF444422;color:#EF4444;padding:2px 6px;border-radius:4px;font-weight:bold">⚠️${c.deviceCount}设备</span>` : ''}
                         </div>
                     </div>
-                    <button onclick="navigator.clipboard.writeText('${c.code}');showToast('✅ 已复制')" style="background:none;border:1px solid var(--brd);color:var(--sub);cursor:pointer;padding:4px 8px;border-radius:4px;font-size:11px">复制</button>
+                    <button onclick="navigator.clipboard.writeText('${c.code}');showToast('✅ 已复制')" style="background:none;border:1px solid var(--brd, #2A3441);color:var(--sub, #9CA3AF);cursor:pointer;padding:4px 8px;border-radius:4px;font-size:11px">复制</button>
                 </div>
-                <div style="padding:0 14px;font-size:11px;color:var(--sub);display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:8px">
+                <div style="padding:0 14px;font-size:11px;color:var(--sub, #9CA3AF);display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:8px">
                     <span>有效期：<strong>${c.days}天</strong></span>
                     <span>状态：<strong style="color:${statusColors[c.status]}">${statusLabels[c.status]}</strong></span>
                     <span>激活次数：<strong>${c.totalActivations}</strong></span>
                     <span>绑定设备：<strong>${c.deviceCount}</strong></span>
                 </div>
                 <div style="background:rgba(0,0,0,.15);padding:8px 14px;max-height:120px;overflow-y:auto;">
-                    <div style="font-size:10px;color:var(--sub);margin-bottom:4px">📋 设备详情：</div>
+                    <div style="font-size:10px;color:var(--sub, #9CA3AF);margin-bottom:4px">📋 设备详情：</div>
                     ${devInfo}
                 </div>
             </div>`;
@@ -487,8 +487,8 @@ async function loadActivationCodeGrid() {
     } catch(e) {
         console.error('[加载激活码失败]', e);
         grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;">
-            <div style="color:var(--red);margin-bottom:8px">❌ 加载失败: ${e.message}</div>
-            <div style="font-size:12px;color:var(--sub)">请确保Worker已部署到最新版本</div>
+            <div style="color:var(--red, #EF4444);margin-bottom:8px">❌ 加载失败: ${e.message}</div>
+            <div style="font-size:12px;color:var(--sub, #9CA3AF)">请确保Worker已部署到最新版本</div>
         </div>`;
     }
 }
@@ -500,7 +500,7 @@ async function loadActivationCodeGrid() {
 async function loadAnalyticsDashboard() {
     const container = document.getElementById('analyticsContent');
     if (!container) return;
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub);">⏳ 正在加载数据看板...</div>';
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub, #9CA3AF);">⏳ 正在加载数据看板...</div>';
 
     try {
         const WORKER_URL = window.AiApiProxy?.WORKER_URL || 'https://api.54xiaoguan.cn';
@@ -532,45 +532,45 @@ async function loadAnalyticsDashboard() {
 
         // ========== 1. 核心指标卡（8张）==========
         html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px;">
-            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:32px;font-weight:bold;color:var(--gold)">${totalVisitors}</div>
-                <div style="font-size:11px;color:var(--sub);margin-top:4px">总访客</div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
+                <div style="font-size:32px;font-weight:bold;color:var(--gold, #F59E0B)">${totalVisitors}</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-top:4px">总访客</div>
             </div>
-            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+            <div style="text-align:center;padding:16px 12px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
                 <div style="font-size:32px;font-weight:bold;color:#3B82F6">${todayNew}</div>
-                <div style="font-size:11px;color:var(--sub);margin-top:4px">今日新增</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-top:4px">今日新增</div>
             </div>
-            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+            <div style="text-align:center;padding:16px 12px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
                 <div style="font-size:32px;font-weight:bold;color:var(--accent)">${totalActivations}</div>
-                <div style="font-size:11px;color:var(--sub);margin-top:4px">总激活 <span style="color:${activationRate>=50?'var(--ok)':'var(--red)'}">(${activationRate}%)</span></div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-top:4px">总激活 <span style="color:${activationRate>=50?'var(--ok, #10B981)':'var(--red, #EF4444)'}">(${activationRate}%)</span></div>
             </div>
-            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:32px;font-weight:bold;color:var(--ok)">${ov.totalMessages}</div>
-                <div style="font-size:11px;color:var(--sub);margin-top:4px">总消息</div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
+                <div style="font-size:32px;font-weight:bold;color:var(--ok, #10B981)">${ov.totalMessages}</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-top:4px">总消息</div>
             </div>
-            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+            <div style="text-align:center;padding:16px 12px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
                 <div style="font-size:32px;font-weight:bold;color:#8B5CF6">${ov.totalDurationMin}</div>
-                <div style="font-size:11px;color:var(--sub);margin-top:4px">总时长(分)</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-top:4px">总时长(分)</div>
             </div>
-            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
+            <div style="text-align:center;padding:16px 12px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
                 <div style="font-size:32px;font-weight:bold;color:#F59E0B">${avgDur}</div>
-                <div style="font-size:11px;color:var(--sub);margin-top:4px">平均时长(分/人)</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-top:4px">平均时长(分/人)</div>
             </div>
-            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:32px;font-weight:bold;color:${bounceRate>50?'var(--red)':'var(--ok)'}">${bounceRate}%</div>
-                <div style="font-size:11px;color:var(--sub);margin-top:4px">流失率</div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
+                <div style="font-size:32px;font-weight:bold;color:${bounceRate>50?'var(--red, #EF4444)':'var(--ok, #10B981)'}">${bounceRate}%</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-top:4px">流失率</div>
             </div>
-            <div style="text-align:center;padding:16px 12px;background:var(--input);border-radius:10px;border:1px solid var(--brd);">
-                <div style="font-size:32px;font-weight:bold;color:${featureUsageRate>=60?'var(--ok)':'var(--red)'}">${featureUsageRate}%</div>
-                <div style="font-size:11px;color:var(--sub);margin-top:4px">功能使用率</div>
+            <div style="text-align:center;padding:16px 12px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
+                <div style="font-size:32px;font-weight:bold;color:${featureUsageRate>=60?'var(--ok, #10B981)':'var(--red, #EF4444)'}">${featureUsageRate}%</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-top:4px">功能使用率</div>
             </div>
         </div>`;
 
         // ========== 2. 转化漏斗 ==========
         const funnelSteps = [
-            { label: '访客总数', value: totalVisitors, color: 'var(--gold)', bg: 'rgba(245,158,11,.1)' },
+            { label: '访客总数', value: totalVisitors, color: 'var(--gold, #F59E0B)', bg: 'rgba(245,158,11,.1)' },
             { label: '激活人数', value: totalActivations, color: '#3B82F6', bg: 'rgba(59,130,246,.1)' },
-            { label: '功能使用', value: totalVisitors - (ov.bounceCount||0), color: 'var(--ok)', bg: 'rgba(16,185,129,.1)' },
+            { label: '功能使用', value: totalVisitors - (ov.bounceCount||0), color: 'var(--ok, #10B981)', bg: 'rgba(16,185,129,.1)' },
             { label: '对话消息', value: ov.totalMessages, color: '#8B5CF6', bg: 'rgba(139,92,246,.1)' }
         ];
         const maxFunnel = Math.max(...funnelSteps.map(s => s.value), 1);
@@ -581,7 +581,7 @@ async function loadAnalyticsDashboard() {
             return `<div style="margin-bottom:10px">
                 <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
                     <span>${s.label}</span>
-                    <span style="color:${s.color};font-weight:700">${s.value} <small style="color:var(--sub)">(${convPct}%)</small></span>
+                    <span style="color:${s.color};font-weight:700">${s.value} <small style="color:var(--sub, #9CA3AF)">(${convPct}%)</small></span>
                 </div>
                 <div style="height:28px;background:${s.bg};border-radius:6px;overflow:hidden;display:flex;align-items:flex-end">
                     <div style="width:${pct}%;height:100%;background:${s.color};border-radius:6px;transition:width .6s;display:flex;align-items:flex-end;justify-content:flex-end;padding:0 8px;font-size:11px;color:#000;font-weight:600">${pct}%</div>
@@ -594,19 +594,19 @@ async function loadAnalyticsDashboard() {
             const fname = appState.features.find(x=>x.id===f.id)?.name || f.id;
             const vPct = f.viewCount > 0 ? Math.round(f.useCount / f.viewCount * 100) : 0;
             return `<tr style="border-bottom:1px solid rgba(255,255,255,.04)">
-                <td style="padding:8px 6px;font-size:12px;color:var(--txt)">${fname}</td>
+                <td style="padding:8px 6px;font-size:12px;color:var(--txt, #F3F4F6)">${fname}</td>
                 <td style="padding:8px 6px;text-align:center;font-size:12px">${f.viewCount}</td>
-                <td style="padding:8px 6px;text-align:center;font-size:12px;color:var(--ok)">${f.useCount}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:12px;color:var(--ok, #10B981)">${f.useCount}</td>
                 <td style="padding:8px 6px;text-align:center">
-                    <span style="font-size:11px;color:${vPct>=30?'var(--ok)':'var(--red)'};font-weight:600">${vPct}%</span>
+                    <span style="font-size:11px;color:${vPct>=30?'var(--ok, #10B981)':'var(--red, #EF4444)'};font-weight:600">${vPct}%</span>
                 </td>
                 <td style="padding:8px 6px;text-align:center">
                     <div style="height:6px;background:rgba(255,255,255,.05);border-radius:3px;width:60px;display:inline-block">
-                        <div style="width:${vPct}%;height:100%;background:${vPct>=30?'var(--ok)':'var(--red)'};border-radius:3px"></div>
+                        <div style="width:${vPct}%;height:100%;background:${vPct>=30?'var(--ok, #10B981)':'var(--red, #EF4444)'};border-radius:3px"></div>
                     </div>
                 </td>
             </tr>`;
-        }).join('') : '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--sub)">暂无数据</td></tr>';
+        }).join('') : '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--sub, #9CA3AF)">暂无数据</td></tr>';
 
         // ========== 4. 功能使用排行榜 ==========
         const featureHtml = features.map(f => {
@@ -614,10 +614,10 @@ async function loadAnalyticsDashboard() {
             const pct = Math.round(f.count / maxFCount * 100);
             return `<div style="margin-bottom:8px">
                 <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-                    <span>${fname}</span><span style="color:var(--gold);font-weight:600">${f.count}次</span>
+                    <span>${fname}</span><span style="color:var(--gold, #F59E0B);font-weight:600">${f.count}次</span>
                 </div>
                 <div style="height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">
-                    <div style="width:${Math.max(pct, 3)}%;height:100%;background:linear-gradient(90deg,var(--gold),#FFD700);border-radius:4px;transition:width .5s"></div>
+                    <div style="width:${Math.max(pct, 3)}%;height:100%;background:linear-gradient(90deg,var(--gold, #F59E0B),#FFD700);border-radius:4px;transition:width .5s"></div>
                 </div>
             </div>`;
         }).join('');
@@ -627,11 +627,11 @@ async function loadAnalyticsDashboard() {
         const trendBars = dailyTrend.map(d => {
             const h = Math.max(Math.round(d.activeUsers / maxDaily * 100), d.activeUsers > 0 ? 8 : 2);
             return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
-                <span style="font-size:11px;font-weight:600;color:var(--gold)">${d.activeUsers}</span>
+                <span style="font-size:11px;font-weight:600;color:var(--gold, #F59E0B)">${d.activeUsers}</span>
                 <div style="width:100%;max-width:32px;height:60px;background:rgba(255,255,255,.03);border-radius:4px 4px 0 0;display:flex;align-items:flex-end">
-                    <div style="width:100%;height:${h}%;background:linear-gradient(to top,var(--gold),rgba(245,158,11,.3));border-radius:4px;transition:height .5s"></div>
+                    <div style="width:100%;height:${h}%;background:linear-gradient(to top,var(--gold, #F59E0B),rgba(245,158,11,.3));border-radius:4px;transition:height .5s"></div>
                 </div>
-                <span style="font-size:9px;color:var(--sub)">${d.date ? d.date.slice(5) : ''}</span>
+                <span style="font-size:9px;color:var(--sub, #9CA3AF)">${d.date ? d.date.slice(5) : ''}</span>
             </div>`;
         }).join('');
 
@@ -639,15 +639,15 @@ async function loadAnalyticsDashboard() {
         html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
             <!-- 左：转化漏斗 + 功能浏览vs使用 -->
             <div>
-                <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;margin-bottom:16px;">
+                <div style="background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);padding:16px;margin-bottom:16px;">
                     <div style="font-size:14px;font-weight:700;margin-bottom:14px">🔄 转化漏斗</div>
                     ${funnelHtml}
                 </div>
-                <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;">
+                <div style="background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);padding:16px;">
                     <div style="font-size:14px;font-weight:700;margin-bottom:4px">👁️ 功能浏览 vs 使用</div>
-                    <div style="font-size:11px;color:var(--sub);margin-bottom:10px">看看用户看了但没用的功能（流失点）</div>
+                    <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-bottom:10px">看看用户看了但没用的功能（流失点）</div>
                     <table style="width:100%;font-size:12px;border-collapse:collapse">
-                        <thead><tr style="color:var(--sub);font-size:11px">
+                        <thead><tr style="color:var(--sub, #9CA3AF);font-size:11px">
                             <th style="text-align:left;padding:6px">功能</th>
                             <th style="text-align:center;padding:6px">浏览</th>
                             <th style="text-align:center;padding:6px">使用</th>
@@ -660,29 +660,29 @@ async function loadAnalyticsDashboard() {
             </div>
             <!-- 右：功能排行 + 7日趋势 -->
             <div>
-                <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;margin-bottom:16px;">
+                <div style="background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);padding:16px;margin-bottom:16px;">
                     <div style="font-size:14px;font-weight:700;margin-bottom:12px">🔥 功能使用排行榜</div>
-                    ${featureHtml || '<div style="text-align:center;color:var(--sub);padding:20px">暂无数据</div>'}
+                    ${featureHtml || '<div style="text-align:center;color:var(--sub, #9CA3AF);padding:20px">暂无数据</div>'}
                 </div>
-                <div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;">
+                <div style="background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);padding:16px;">
                     <div style="font-size:14px;font-weight:700;margin-bottom:12px">📈 最近7天活跃趋势</div>
                     <div style="display:flex;gap:8px;align-items:flex-end;height:110px;padding:0 8px">
-                        ${trendBars || '<div style="color:var(--sub);width:100%;text-align:center;padding:30px">暂无数据</div>'}
+                        ${trendBars || '<div style="color:var(--sub, #9CA3AF);width:100%;text-align:center;padding:30px">暂无数据</div>'}
                     </div>
                 </div>
             </div>
         </div>`;
 
         // ========== 6. 激活码使用明细表（可点击展开）==========
-        html += `<div style="background:var(--input);border-radius:10px;border:1px solid var(--brd);padding:16px;margin-bottom:24px;">
+        html += `<div style="background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);padding:16px;margin-bottom:24px;">
             <div style="font-size:14px;font-weight:700;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
                 <span>📋 激活码使用明细（点击展开详情）</span>
-                <span style="font-size:11px;color:var(--sub)">共 ${codeDetails.length} 个已激活码</span>
+                <span style="font-size:11px;color:var(--sub, #9CA3AF)">共 ${codeDetails.length} 个已激活码</span>
             </div>
-            <div style="font-size:11px;color:var(--sub);margin-bottom:12px">点击某一行查看该激活码对应用户使用了哪些功能、停留多久</div>
+            <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-bottom:12px">点击某一行查看该激活码对应用户使用了哪些功能、停留多久</div>
             <div style="overflow-x:auto;">
                 <table style="width:100%;font-size:12px;border-collapse:collapse" id="codeDetailsTable">
-                    <thead><tr style="border-bottom:1px solid var(--brd);color:var(--sub)">
+                    <thead><tr style="border-bottom:1px solid var(--brd, #2A3441);color:var(--sub, #9CA3AF)">
                         <th style="text-align:left;padding:8px 6px;font-weight:600">激活码</th>
                         <th style="text-align:left;padding:8px 6px;font-weight:600">类型</th>
                         <th style="text-align:center;padding:8px 6px;font-weight:600">设备</th>
@@ -694,15 +694,15 @@ async function loadAnalyticsDashboard() {
                     <tbody>`;
 
         codeDetails.forEach((c, idx) => {
-            const statusColor = c.isExpired ? 'var(--red)' : c.deviceCount > 0 ? 'var(--ok)' : 'var(--sub)';
+            const statusColor = c.isExpired ? 'var(--red, #EF4444)' : c.deviceCount > 0 ? 'var(--ok, #10B981)' : 'var(--sub, #9CA3AF)';
             const lastDate = c.lastUsed ? new Date(c.lastUsed).toLocaleDateString('zh-CN') : '-';
             const codeId = `code-detail-${idx}`;
             html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer" onclick="toggleCodeDetail('${codeId}')" id="row-${codeId}">
-                <td style="padding:8px 6px;font-family:monospace;font-size:12px;color:var(--gold)">${c.code}</td>
+                <td style="padding:8px 6px;font-family:monospace;font-size:12px;color:var(--gold, #F59E0B)">${c.code}</td>
                 <td style="padding:8px 6px;font-size:11px">${c.label}</td>
                 <td style="padding:8px 6px;text-align:center;font-size:11px">${c.deviceCount}</td>
                 <td style="padding:8px 6px;text-align:center;font-size:11px">${c.totalSessions}</td>
-                <td style="padding:8px 6px;text-align:center;font-size:11px;color:var(--ok)">${c.totalChats}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:11px;color:var(--ok, #10B981)">${c.totalChats}</td>
                 <td style="padding:8px 6px;text-align:center;font-size:11px">${c.totalDurationMin}</td>
                 <td style="padding:8px 6px;text-align:center;font-size:11px;color:${statusColor}">${lastDate}</td>
             </tr>
@@ -722,23 +722,23 @@ async function loadAnalyticsDashboard() {
 
     } catch(e) {
         console.error('[加载看板失败]', e);
-        container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red);">
+        container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red, #EF4444);">
             ❌ 加载失败: ${e.message}
-            <div style="font-size:12px;color:var(--sub);margin-top:8px">请确保 Worker 已部署最新版本</div>
+            <div style="font-size:12px;color:var(--sub, #9CA3AF);margin-top:8px">请确保 Worker 已部署最新版本</div>
         </div>`;
     }
 }
 
 // 渲染单个激活码的用户使用详情
 function renderCodeDetail(c) {
-    if (!c || !c.featureBreakdown) return '<div style="color:var(--sub)">暂无详细信息</div>';
+    if (!c || !c.featureBreakdown) return '<div style="color:var(--sub, #9CA3AF)">暂无详细信息</div>';
 
     // 功能使用明细
     const featureRows = Object.entries(c.featureBreakdown || {}).map(([fid, cnt]) => {
         const fname = appState.features.find(x=>x.id===fid)?.name || fid;
         return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)">
-            <span style="color:var(--txt)">${fname}</span>
-            <span style="color:var(--gold);font-weight:600">${cnt} 次</span>
+            <span style="color:var(--txt, #F3F4F6)">${fname}</span>
+            <span style="color:var(--gold, #F59E0B);font-weight:600">${cnt} 次</span>
         </div>`;
     }).join('');
 
@@ -746,24 +746,24 @@ function renderCodeDetail(c) {
     const devRows = (c.devices || []).map(d => {
         const ua = (d.userAgentShort || '').slice(0, 50);
         return `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)">
-            <div style="font-size:11px;color:var(--sub)">📱 ${d.deviceId ? d.deviceId.slice(0,20) : ''}...</div>
+            <div style="font-size:11px;color:var(--sub, #9CA3AF)">📱 ${d.deviceId ? d.deviceId.slice(0,20) : ''}...</div>
             <div style="display:flex;gap:12px;font-size:11px;margin-top:2px">
                 <span>会话:${d.sessions||0}</span>
                 <span>对话:${d.chats||0}</span>
                 <span>时长:${d.totalDurationMin||0}分</span>
             </div>
-            ${ua ? `<div style="font-size:10px;color:var(--sub);margin-top:2px">${ua}</div>` : ''}
+            ${ua ? `<div style="font-size:10px;color:var(--sub, #9CA3AF);margin-top:2px">${ua}</div>` : ''}
         </div>`;
     }).join('');
 
     return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div>
-            <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">📊 功能使用明细</div>
-            ${featureRows || '<div style="color:var(--sub)">无功能使用记录</div>'}
+            <div style="font-size:12px;font-weight:700;color:var(--gold, #F59E0B);margin-bottom:8px">📊 功能使用明细</div>
+            ${featureRows || '<div style="color:var(--sub, #9CA3AF)">无功能使用记录</div>'}
         </div>
         <div>
             <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px">📱 设备信息</div>
-            ${devRows || '<div style="color:var(--sub)">无设备信息</div>'}
+            ${devRows || '<div style="color:var(--sub, #9CA3AF)">无设备信息</div>'}
         </div>
     </div>`;
 }
