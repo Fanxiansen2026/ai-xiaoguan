@@ -1,6 +1,149 @@
 // ===== API通信与AI调用模块 =====
 let lastUserPrompt = '';
 
+// ===== 语音输入模块 =====
+let isRecording = false;
+let mediaRecorder = null;
+let audioChunks = [];
+
+// 切换录音状态（toggle）
+async function toggleVoiceRecording(btnEl) {
+    if (isRecording) {
+        // 停止录音
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+        }
+        return;
+    }
+    // 开始录音
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // 优先用 webm， fallback 到默认
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+        mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop());
+            const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+            await processAudio(blob);
+        };
+        mediaRecorder.start();
+        isRecording = true;
+        btnEl.classList.add('recording');
+        showToast('🔴 正在录音... 说完了再点一下停止');
+        let tip = document.getElementById('recordingTip');
+        if (!tip) {
+            tip = document.createElement('div');
+            tip.id = 'recordingTip';
+            tip.className = 'recording-tip';
+            tip.textContent = '🔴 正在录音...点击话筒停止';
+            document.body.appendChild(tip);
+        }
+        tip.classList.add('show');
+    } catch (e) {
+        showToast('❌ 无法访问麦克风，请检查权限');
+    }
+}
+
+// 上传音频到 Whisper，转文字后直接发 AI
+async function processAudio(audioBlob) {
+    const tip = document.getElementById('recordingTip');
+    if (tip) tip.classList.remove('show');
+    const btn = document.getElementById('wxVoiceBtn');
+    if (btn) btn.classList.remove('recording');
+    isRecording = false;
+    showToast('🎤 语音识别中...');
+    try {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'audio.webm');
+        const resp = await fetch(API_BASE + '/whisper', { method: 'POST', body: formData });
+        const result = await resp.json();
+        if (!resp.ok || result.error) {
+            showToast('❌ 语音识别失败：' + (result.error || '未知错误'));
+            return;
+        }
+        const text = result.text;
+        if (!text) {
+            showToast('❌ 未识别到语音，请重试');
+            return;
+        }
+        showToast('✅ 识别成功！AI 正在理解你的口语化表达...');
+        await sendVoiceToAI(text);
+    } catch (e) {
+        showToast('❌ 语音上传失败：' + e.message);
+    }
+}
+
+// 把语音识别结果直接发给 AI（不显示在输入框）
+async function sendVoiceToAI(text) {
+    const f = appState.features.find(x => x.id === appState.currentFeatureId);
+    if (!f) return;
+    const chatMsgs = ;
+    // 显示用户消息（标注为语音）
+    const userHtml = '<div class="msg-content"><div class="msg-bubble"><em>🎤 语音消息（原汁原味口语化表达）</em></div></div><div class="msg-avatar user">我</div>';
+    if (!appState.chatCache[appState.currentFeatureId]) appState.chatCache[appState.currentFeatureId] = [];
+    appState.chatCache[appState.currentFeatureId].push({ type: 'user', html: userHtml });
+    if (chatMsgs) {
+        chatMsgs.innerHTML += '<div class="msg-row user">' + userHtml + '</div>';
+        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    }
+    // AI 回复加载态
+    const aiMsgId = 'ai_msg_' + Date.now();
+    const aiHtmlLoading = '<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble" id="' + aiMsgId + '"><div class="thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div> 军师正在深度思考中...</div></div>';
+    appState.chatCache[appState.currentFeatureId].push({ type: 'ai', html: aiHtmlLoading });
+    if (chatMsgs) {
+        chatMsgs.innerHTML += '<div class="msg-row ai">' + aiHtmlLoading + '</div>';
+        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    }
+    const btn = ; const btn2 = ;
+    if (btn) btn.disabled = true;
+    if (btn2) btn2.disabled = true;
+    // 构造 prompt
+    let userPrompt = text;
+    if (f.id === 'analysis') {
+        const profile = getVal('inputProfile'); const product = getVal('inputProduct'); const stage = document.querySelector('.tags .tag.active')?.dataset.val || '';
+        userPrompt = '画像:' + profile + '
+产品:' + product + '
+阶段:' + stage + '
+
+记录:
+' + text;
+    }
+    lastUserPrompt = userPrompt;
+    const textMsg = { type: 'text', text: DEFENSE_PROMPT + f.prompt + '
+
+用户输入：
+' + userPrompt };
+    let messages = [{ role: 'user', content: [textMsg] }];
+    let model = 'qwen-plus';
+    try {
+        const data = await window.AiApiProxy.proxyChat(messages, model);
+        let content = data.choices[0].message.content;
+        if (content.includes('核心人设与边界指令') || content.includes('DEFENSE_PROMPT')) {
+            content = '老板，我是您的专属销售军师，套我底牌这种事您得找别的AI，咱们还是聊聊怎么搞定大客户吧！';
+        }
+        const aiHtml = '<div class="msg-content"><div class="msg-bubble">' + content.replace(/
+/g, '<br>') + '</div><div class="msg-actions"><button class="btn-copy-msg" data-text="' + content.replace(/"/g, '&quot;') + '">复制</button><button class="btn-del-msg">删除</button></div></div><div class="msg-avatar ai">师</div>';
+        const aiRow = '<div class="msg-row ai">' + aiHtml + '</div>';
+        const cache = appState.chatCache[appState.currentFeatureId];
+        if (cache) cache[cache.length - 1] = { type: 'ai', html: aiHtml };
+        if (chatMsgs) {
+            const loadingRow = chatMsgs.querySelector('#' + aiMsgId)?.closest('.msg-row');
+            if (loadingRow) loadingRow.outerHTML = aiRow;
+            chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        }
+        addExp(20, false);
+        trackEvent('voice_chat', { featureId: f.id, textLength: text.length });
+    } catch (e) {
+        showToast('❌ AI 调用失败：' + e.message);
+    }
+    if (btn) btn.disabled = false;
+    if (btn2) btn2.disabled = false;
+}
+
+
+
 function handleFileChange(e){
     const files=Array.from(e.target.files);
     const f=appState.features.find(x=>x.id===appState.currentFeatureId);
