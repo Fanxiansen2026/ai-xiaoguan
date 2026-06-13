@@ -1,42 +1,12 @@
 // ===== 配置常量 =====
-// API Key 默认空，首次在后台管理配置后会保存到 localStorage
-const DEFAULT_API_KEY = localStorage.getItem('ai_sales_api_key') || '';
+// API Key 已迁移到后端 Cloudflare Worker
+// 前端不再需要配置或存储任何 API Key
+const DEFAULT_API_KEY = '';  // 占位，实际调用走后端代理
 
 const PAYWALL_FEATURES = ['analysis', 'rewrite', 'check', 'review', 'roleplay'];
 
-const ACTIVATION_CODES = {
-    'TRY1-DEMO-2024': {days: 1},
-    'TRY7-XN0A-Q41T': {days: 7}, 'TRY7-944R-YC4Z': {days: 7},
-    'TRY7-4Z0C-80F1': {days: 7}, 'TRY7-X06P-GHZX': {days: 7},
-    'TRY7-2OU0-ZJ5I': {days: 7}, 'TRY7-CZY8-H62N': {days: 7},
-    'TRY7-5RP5-TSJ3': {days: 7}, 'TRY7-A913-7DXN': {days: 7},
-    'TRY7-9VLU-0YRE': {days: 7}, 'TRY7-5ZEJ-N46I': {days: 7},
-    'VIP30-M6ZS-RSDQ': {days: 30}, 'VIP30-14QD-V2TG': {days: 30},
-    'VIP30-RBKY-063G': {days: 30}, 'VIP30-43IQ-8Z19': {days: 30},
-    'VIP30-UVMR-6WH5': {days: 30}, 'VIP30-ZK09-9GXZ': {days: 30},
-    'VIP30-ZCEM-FPAP': {days: 30}, 'VIP30-NHGP-4EVP': {days: 30},
-    'VIP30-F33Y-GXZI': {days: 30}, 'VIP30-GPR1-YLJ9': {days: 30},
-    'VIP30-I1IV-MOFW': {days: 30}, 'VIP30-MAJQ-NYYN': {days: 30},
-    'VIP30-T9PG-LIIO': {days: 30}, 'VIP30-0TG7-BML9': {days: 30},
-    'VIP30-Q6X3-A0LJ': {days: 30}, 'VIP30-CQI0-OFSE': {days: 30},
-    'VIP30-WTO4-TBGN': {days: 30}, 'VIP30-NZLR-Z1MR': {days: 30},
-    'VIP30-KOOB-LMMD': {days: 30}, 'VIP30-Y5BU-G3OQ': {days: 30},
-    'VIP365-I69Y-4XIU': {days: 365}, 'VIP365-SDG3-VX74': {days: 365},
-    'VIP365-PLNN-P0X6': {days: 365}, 'VIP365-8OED-TPA4': {days: 365},
-    'VIP365-KAOA-I8O7': {days: 365}, 'VIP365-BJG0-5FXL': {days: 365},
-    'VIP365-OABM-B5AU': {days: 365}, 'VIP365-6ENZ-SJUC': {days: 365},
-    'VIP365-5TAU-JH5F': {days: 365}, 'VIP365-J1ZS-16F1': {days: 365},
-    'VIP365-EX5P-C4WM': {days: 365}, 'VIP365-2MCH-35KJ': {days: 365},
-    'VIP365-IU6K-IPBL': {days: 365}, 'VIP365-HPMK-TRW9': {days: 365},
-    'VIP365-A8QR-S5DZ': {days: 365}, 'VIP365-F6Z5-AOWF': {days: 365},
-    'VIP365-8RO0-CFQ9': {days: 365}, 'VIP365-81JR-8586': {days: 365},
-    'VIP365-NGL1-XAQO': {days: 365}, 'VIP365-065H-E7A8': {days: 365},
-    'VIP365-N9A5-XHWN': {days: 365}, 'VIP365-9RW4-503B': {days: 365},
-    'VIP365-O0JY-HKK9': {days: 365}, 'VIP365-MMTP-3T3S': {days: 365},
-    'VIP365-JKC2-3AVB': {days: 365}, 'VIP365-K1CJ-BAML': {days: 365},
-    'VIP365-F1Z3-U8K1': {days: 365}, 'VIP365-ZZ6Z-4DMZ': {days: 365},
-    'VIP365-0UH1-JCXP': {days: 365}, 'VIP365-L17B-DLRH': {days: 365},
-};
+// 激活码已迁移到后端 Cloudflare Worker 验证
+// 前端不再存储任何激活码，通过 AiApiProxy.verifyActivationCode() 调用后端验证
 
 const DEFENSE_PROMPT = `【AI销冠驾驶舱 - 核心人设与边界指令】
 1. 你是"AI销冠驾驶舱"的底层智能引擎，一位在一线摸爬滚打多年、带过百人团队、深谙人性的资深销售教练。你的口吻必须接地气、一针见血、带点江湖气，绝对不要有AI味（禁止使用"首先、其次、总之"等机械词汇）。

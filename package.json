@@ -1,0 +1,10 @@
+{
+  "name": "ai-xiaoguan",
+  "version": "2.0.0",
+  "description": "AI销冠驾驶舱 - 智能销售赋能系统",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "build:prod": "node build.js --prod"
+  }
+}

@@ -85,44 +85,50 @@ function checkActivation(){
         return true;
     }catch(e){ return false; }
 }
-function verifyActivationCode(){
+async function verifyActivationCode(){
     const input = document.getElementById('activationInput');
     const error = document.getElementById('activationError');
-    const code = input.value.trim().toUpperCase();
+    const code = input.value.trim();
     if(!code){ error.textContent = '请输入激活码'; return; }
-    
-    // 1. 先查硬编码激活码
-    let config = ACTIVATION_CODES[code];
-    
-    // 2. 再查管理后台生成的激活码
-    if(!config){
-        const record = appState.activationRecords.find(r => r.code === code && !r.used);
-        if(record){
-            config = { days: record.days };
+
+    // 显示加载状态
+    const btn = document.getElementById('btnActivate');
+    if(btn) { btn.disabled = true; btn.textContent = '验证中...'; }
+    error.textContent = '';
+
+    try {
+        // 调用后端 API 验证激活码（激活码列表存在服务端，前端看不到）
+        const result = await window.AiApiProxy.verifyActivationCode(code);
+
+        if(result.valid){
+            const deviceId = window.AiApiProxy.getDeviceId();
+            // 保存激活信息到 localStorage（仅保存结果，不存码表）
+            const activation = {
+                code: '****-****-' + code.slice(-4),  // 只存后4位用于显示
+                activatedAt: Date.now(),
+                days: result.days,
+                isValid: true,
+                deviceId: deviceId,
+                type: result.type
+            };
+            localStorage.setItem('ai_sales_activation_v1', JSON.stringify(activation));
+            appState.activation = activation;
+
+            closeActivationModal();
+            updateActivationStatus();
+            showToast(`✅ ${result.message || '激活成功！有效期 ' + result.days + ' 天'}`);
+            trackEvent('activation_success',{type:result.type, days:result.days});
+            if(appState.currentFeatureId && isPaywallFeature(appState.currentFeatureId)) { initWorkspace(appState.currentFeatureId); }
+        } else {
+            error.textContent = result.message || '激活码无效，请检查或联系商务';
+            trackEvent('activation_fail',{reason: result.message});
         }
+    } catch(e) {
+        error.textContent = '网络错误，请稍后再试';
+        console.error('[激活验证异常]', e);
     }
-    
-    if(!config){ error.textContent = '激活码无效，请检查或联系商务'; return; }
-    
-    const deviceId = localStorage.getItem('ai_sales_device_id') || 'unknown';
-    const usedCodes = JSON.parse(localStorage.getItem('ai_sales_used_codes') || '{}');
-    if(usedCodes[code] && usedCodes[code] !== deviceId) { console.log('激活码可能在多设备使用'); }
-    
-    const activation = { code: code, activatedAt: Date.now(), days: config.days, isValid: true, deviceId: deviceId };
-    localStorage.setItem('ai_sales_activation_v1', JSON.stringify(activation));
-    usedCodes[code] = deviceId;
-    localStorage.setItem('ai_sales_used_codes', JSON.stringify(usedCodes));
-    appState.activation = activation;
-    
-    // 标记管理后台记录为已使用
-    const record = appState.activationRecords.find(r => r.code === code);
-    if(record) record.used = true;
-    
-    closeActivationModal();
-    updateActivationStatus();
-    showToast(`✅ 激活成功！有效期 ${config.days} 天`);
-    trackEvent('activation_success',{code,days:config.days});
-    if(appState.currentFeatureId && isPaywallFeature(appState.currentFeatureId)) { initWorkspace(appState.currentFeatureId); }
+
+    if(btn) { btn.disabled = false; btn.textContent = '⚡ 立即激活'; }
 }
 function updateActivationStatus(){
     const el = document.getElementById('activationStatus');
@@ -143,15 +149,15 @@ function clearActivation(){
     appState.activation = { code:'', activatedAt:0, days:0, isValid:false, deviceId:'' };
 }
 
-/* ========== API Key 配置 ========== */
+/* ========== 后端代理模式：不再需要前端配置API Key ========== */
+// 所有 AI 调用通过 Cloudflare Worker 代理，真实 Key 存在服务端
 function checkApiKey(){
-    if(appState.apiKey && appState.apiKey.startsWith('sk-') && appState.apiKey.length > 20){ return; }
+    // 始终返回 true，因为 API 调用走后端代理，不需要本地配置 Key
+    return true;
 }
 function ensureApiKey(){
-    if(BACKEND_URL && BACKEND_URL.startsWith('http') && !BACKEND_URL.includes('YOUR_CLOUDFUNCTION_URL_HERE')){ return true; }
-    if(appState.apiKey && appState.apiKey.startsWith('sk-') && appState.apiKey.length > 20){ return true; }
-    showApiKeyModal();
-    return false;
+    // 始终返回 true，同上
+    return true;
 }
 function showApiKeyModal(){document.getElementById('apiKeyModal').classList.add('show');}
 function closeApiKeyModal(){

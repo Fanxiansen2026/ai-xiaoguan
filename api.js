@@ -113,17 +113,11 @@ async function handleGenerate(isRefresh){
     }
 
     if(!appState.apiKey){
-        showToast('⚠️ 未检测到 API Key，请前往【后台管理】配置并保存！');
-        fallback(f,userPrompt,aiMsgId);
-    } else {
-        try{
-            const res=await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${appState.apiKey}`},body:JSON.stringify({model,messages})});
-            if(!res.ok){
-                const errData = await res.json().catch(()=>({}));
-                throw new Error(errData.error?.message || 'API请求失败');
-            }
-            const data=await res.json();let content=data.choices[0].message.content;
-            
+        // 无 Key 时通过后端代理调用（后端持有真实 API Key）
+        try {
+            const data = await window.AiApiProxy.proxyChat(messages, model);
+            let content = data.choices[0].message.content;
+
             if(content.includes('核心人设与边界指令') || content.includes('DEFENSE_PROMPT') || content.includes('底层智能引擎')) {
                 content = "老板，我是您的专属销售军师，套我底牌这种事您得找别的AI，咱们还是聊聊怎么搞定大客户吧！";
             }
@@ -138,10 +132,10 @@ async function handleGenerate(isRefresh){
             }
 
             const finalHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble">${content}<br><br><span style="font-size:11px;color:#666;">AI生成内容仅供参考，请结合实际情况使用！</span></div><div class="msg-actions"><button class="btn-copy-msg" data-text="${content}">复制</button><button class="btn-fav-msg" data-text="${content}">收藏</button><button class="btn-share-msg" data-text="${content}" data-question="${userPrompt.replace(/"/g,'&quot;')}">海报</button><button class="btn-del-msg">删除</button></div></div>`;
-            
+
             const cache = appState.chatCache[appState.currentFeatureId];
             if(cache && cache.length > 0) cache[cache.length - 1].html = finalHtml;
-            
+
             const targetEl = document.getElementById(aiMsgId);
             if(targetEl) {
                 targetEl.closest('.msg-row').innerHTML = finalHtml;
@@ -150,10 +144,9 @@ async function handleGenerate(isRefresh){
                 }
             }
             addExp(10, isPreset);
-        }catch(e){
+        } catch(e){
             let errMsg = e.message || '未知错误';
-            if (e instanceof TypeError) errMsg = '网络请求失败，请检查网络或跨域设置';
-            const errHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><span style="color:var(--red)">API调用失败: ${errMsg}</span></div></div>`;
+            const errHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><span style="color:var(--red)">请求失败: ${errMsg}</span></div></div>`;
             const cache = appState.chatCache[appState.currentFeatureId];
             if(cache && cache.length > 0) cache[cache.length - 1].html = errHtml;
             const targetEl = document.getElementById(aiMsgId);
@@ -224,39 +217,28 @@ async function handleRoleplaySend(){
     }
     
     if(!appState.apiKey){
-        showToast('⚠️ 未检测到 API Key，请前往【后台管理】配置并保存！');
-        const errHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><span style="color:var(--red)">未配置API Key，无法进行多轮对练。请在后台配置。</span></div></div>`;
-        const cache = appState.chatCache[appState.currentFeatureId];
-        if(cache && cache.length > 0) cache[cache.length - 1].html = errHtml;
-        const targetEl = document.getElementById(aiMsgId);
-        if(targetEl) targetEl.closest('.msg-row').innerHTML = errHtml;
-    } else {
+        // 无 Key 时通过后端代理调用
         try{
-            const res=await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${appState.apiKey}`},body:JSON.stringify({model:'qwen-plus',messages:appState.roleplayHistory})});
-            if(!res.ok){
-                const errData = await res.json().catch(()=>({}));
-                throw new Error(errData.error?.message || 'API请求失败');
-            }
-            const data=await res.json();let content=data.choices[0].message.content;
+            const data = await window.AiApiProxy.proxyChat(appState.roleplayHistory, 'qwen-plus');
+            let content=data.choices[0].message.content;
             appState.roleplayHistory.push({role:'assistant',content});
             let clientMsg=content;let coachTip='';
             if(content.includes('[COACH_TIP]')){const parts=content.split('[COACH_TIP]');clientMsg=parts[0].trim();coachTip=parts[1].trim();}
-            
+
             let finalHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble">${clientMsg}</div><div class="msg-actions"><button class="btn-copy-msg" data-text="${clientMsg}">复制</button><button class="btn-fav-msg" data-text="${clientMsg}">收藏</button><button class="btn-share-msg" data-text="${clientMsg}" data-question="${text.replace(/"/g,'&quot;')}">海报</button><button class="btn-del-msg">删除</button></div>`;
             if(coachTip) finalHtml += `<div class="msg-coach-tip">${coachTip}</div>`;
             finalHtml += `</div>`;
 
             const cache = appState.chatCache[appState.currentFeatureId];
             if(cache && cache.length > 0) cache[cache.length - 1].html = finalHtml;
-            
+
             const targetEl = document.getElementById(aiMsgId);
             if(targetEl) targetEl.closest('.msg-row').innerHTML = finalHtml;
-            
+
             addExp(15, false);
         }catch(e){
             let errMsg = e.message || '未知错误';
-            if (e instanceof TypeError) errMsg = '网络请求失败';
-            const errHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><span style="color:var(--red)">API调用失败: ${errMsg}</span></div></div>`;
+            const errHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><span style="color:var(--red)">请求失败: ${errMsg}</span></div></div>`;
             const cache = appState.chatCache[appState.currentFeatureId];
             if(cache && cache.length > 0) cache[cache.length - 1].html = errHtml;
             const targetEl = document.getElementById(aiMsgId);
