@@ -6,7 +6,7 @@
 // ===== 配置区（部署后在这里修改） =====
 
 // 你的阿里云 DashScope API Key（存在这里，前端看不到）
-const DASHSCOPE_API_KEY = 'sk-你的阿里云API-Key填这里';
+const DASHSCOPE_API_KEY = 'sk-c0a3c435fbf4446c9ef9201fa319094d';
 
 // 每用户每天最大调用次数
 const DAILY_CALL_LIMIT = 200;
