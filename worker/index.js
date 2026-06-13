@@ -370,7 +370,7 @@ export default {
           result.warning = `⚠️ 此激活码已被其他设备绑定过，这是第 ${deviceCount} 个设备。`;
         }
 
-        console.log(`[激活] 码=${码=${code}}, 设备=${deviceId}, 设备数=${deviceCount}, 类型=${codeInfo.type}`);
+        console.log(`[激活] 码=${code}, 设备=${deviceId}, 设备数=${deviceCount}, 类型=${codeInfo.type}`);
 
         return json(result);
       }
