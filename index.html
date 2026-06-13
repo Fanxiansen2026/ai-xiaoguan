@@ -44,6 +44,13 @@
 <div class="toast" id="toast"></div>
 <div class="level-up" id="levelUp"><h2 id="levelUpTitle">段位提升！</h2><p id="levelUpDesc" style="color:var(--sub);font-size:13px"></p></div>
 
+<!-- 手机端错误提示（默认隐藏） -->
+<div id="mobileError" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);color:var(--red);padding:20px;z-index:9999;overflow-y:auto;font-size:13px;line-height:1.8">
+  <h3 style="color:var(--red);margin-bottom:12px">⚠️ 页面加载出错</h3>
+  <div id="mobileErrorMsg"></div>
+  <button onclick="location.reload()" style="margin-top:20px;padding:10px 24px;background:var(--gold);color:#000;border:none;border-radius:8px;font-size:14px;cursor:pointer">🔄 刷新页面</button>
+</div>
+
 <!-- ===== API Key 配置弹窗 ===== -->
 <div class="activation-modal" id="apiKeyModal">
     <div class="activation-box">
@@ -80,13 +87,13 @@
 </div>
 <div class="activation-status" id="activationStatus" style="display:none" onclick="if(confirm('确定退出并清除激活状态？')){clearActivation();location.reload();}"></div>
 
-<script src="api-proxy.js"></script>
-<script src="config.js"></script>
-<script src="core.js"></script>
-<script src="features.js"></script>
-<script src="admin.js"></script>
-<script src="api.js"></script>
-<script src="init.js"></script>
-<script src="埋点采集代码_v2.js"></script>
+<script src="api-proxy.js?v=20260614"></script>
+<script src="config.js?v=20260614"></script>
+<script src="core.js?v=20260614"></script>
+<script src="features.js?v=20260614"></script>
+<script src="admin.js?v=20260614"></script>
+<script src="api.js?v=20260614"></script>
+<script src="init.js?v=20260614"></script>
+<script src="埋点采集代码_v2.js?v=20260614"></script>
 </body>
 </html>
