@@ -168,7 +168,7 @@ async function handleGenerate(isRefresh){
             addExp(10, isPreset);
         } catch(e){
             let errMsg = e.message || '未知错误';
-            const errHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><span style="color:var(--red)">请求失败: ${errMsg}</span></div></div>`;
+            const errHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><span style="color:var(--red, #EF4444)">请求失败: ${errMsg}</span></div></div>`;
             const cache = appState.chatCache[appState.currentFeatureId];
             if(cache && cache.length > 0) cache[cache.length - 1].html = errHtml;
             const targetEl = document.getElementById(aiMsgId);
@@ -260,7 +260,7 @@ async function handleRoleplaySend(){
             addExp(15, false);
         }catch(e){
             let errMsg = e.message || '未知错误';
-            const errHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><span style="color:var(--red)">请求失败: ${errMsg}</span></div></div>`;
+            const errHtml = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><span style="color:var(--red, #EF4444)">请求失败: ${errMsg}</span></div></div>`;
             const cache = appState.chatCache[appState.currentFeatureId];
             if(cache && cache.length > 0) cache[cache.length - 1].html = errHtml;
             const targetEl = document.getElementById(aiMsgId);
@@ -277,7 +277,7 @@ async function handleRoleplaySend(){
 function fallback(f,userPrompt,aiMsgId){
     const text=DEFENSE_PROMPT+f.prompt+'\n\n用户输入：\n'+userPrompt;
     safeCopy(text);
-    const html = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><strong>📋 Prompt 已复制！</strong><br>请打开通义千问APP粘贴发送。<br>${appState.uploadedFiles.length>0?'<span style="color:var(--red)">⚠️ 请在APP中手动上传图片！</span>':''}<br><br><span style="font-size:11px;color:#666;">AI生成内容仅供参考，请结合实际情况使用！</span></div><div class="msg-actions"><button class="btn-copy-msg" data-text="${text}">复制</button><button class="btn-del-msg">删除</button></div></div>`;
+    const html = `<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble"><strong>📋 Prompt 已复制！</strong><br>请打开通义千问APP粘贴发送。<br>${appState.uploadedFiles.length>0?'<span style="color:var(--red, #EF4444)">⚠️ 请在APP中手动上传图片！</span>':''}<br><br><span style="font-size:11px;color:#666;">AI生成内容仅供参考，请结合实际情况使用！</span></div><div class="msg-actions"><button class="btn-copy-msg" data-text="${text}">复制</button><button class="btn-del-msg">删除</button></div></div>`;
     
     const cache = appState.chatCache[appState.currentFeatureId];
     if(cache && cache.length > 0) cache[cache.length - 1].html = html;
