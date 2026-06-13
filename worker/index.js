@@ -371,19 +371,12 @@ export default {
           return json({ error: 'Missing messages parameter' }, 400);
         }
 
-        // 检查是否激活
+        // 限流检查（所有用户都限流，不验激活码）
         if (userId) {
-          const activation = await getActivation(env, userId);
-          if (!activation || Date.now() > activation.expiresAt) {
-            return json({ error: 'ACTIVATION_EXPIRED', message: '激活码已过期，请重新激活' }, 403);
-          }
-
-          // 限流检查
           const callCount = await getCallCount(env, userId);
           if (callCount >= DAILY_CALL_LIMIT) {
             return json({ error: 'RATE_LIMITED', message: `今日调用次数已达上限(${DAILY_CALL_LIMIT}次)，明天继续使用` }, 429);
           }
-
           // 增加计数
           await incrementCallCount(env, userId);
         }
