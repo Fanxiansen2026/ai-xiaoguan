@@ -268,7 +268,7 @@ function renderFavorites(){
     </div>`;
     
     if(appState.favorites.length === 0){
-        html += '<div style="text-align:center;padding:40px;color:var(--sub)">暂无收藏，点击生成内容中的"收藏"按钮或话术库中的收藏按钮添加</div>';
+        html += '<div style="text-align:center;padding:40px;color:var(--sub, #9CA3AF)">暂无收藏，点击生成内容中的"收藏"按钮或话术库中的收藏按钮添加</div>';
         list.innerHTML = html;
         bindTabSwitch();
         return;
@@ -454,9 +454,9 @@ function initProfile(){
         <div class="exp-bar"><div class="exp-fill" style="width:${expProgress}%"></div></div>
         <div class="exp-text">经验值 ${u.exp} ${nextRank?`/ ${nextRank.minExp} (距离 ${nextRank.name} 还需 ${nextRank.minExp-u.exp} 经验)`:' (已达最高段位)'}</div>
         <div style="margin-bottom:20px;">
-            <div style="font-size:12px;color:var(--sub);margin-bottom:6px;">${gc.syncName}：${progress}%</div>
+            <div style="font-size:12px;color:var(--sub, #9CA3AF);margin-bottom:6px;">${gc.syncName}：${progress}%</div>
             <div class="progress-bar" style="height:6px;margin:0 20px;"><div class="progress-fill" style="width:${progress}%"></div></div>
-            <div style="font-size:11px;color:var(--gold-l);margin-top:8px;font-style:italic;">${gc.syncHint}</div>
+            <div style="font-size:11px;color:var(--gold-l, #FCD34D);margin-top:8px;font-style:italic;">${gc.syncHint}</div>
         </div>
         <div class="profile-stats">
             <div class="stat-item"><div class="stat-val">${u.chatCount}</div><div class="stat-label">对话次数</div></div>
