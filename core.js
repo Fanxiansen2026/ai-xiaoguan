@@ -713,15 +713,15 @@ function showPWAInProfile(){
     if(profileCard.querySelector('#pwaProfileCard')) return;
     const pwaSection = document.createElement('div');
     pwaSection.id = 'pwaProfileCard';
-    pwaSection.style.cssText = 'margin-top:16px;padding:12px;border:1px solid var(--brd);border-radius:8px;background:var(--input)';
+    pwaSection.style.cssText = 'margin-top:16px;padding:12px;border:1px solid var(--brd, #2A3441);border-radius:8px;background:var(--input, #1A2235)';
     
     const isUnsupported = appState.pwaUnsupported;
     pwaSection.innerHTML = `
         <div style="display:flex;align-items:center;gap:12px">
             <div style="width:36px;height:36px;background:var(--grad);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#000">APP</div>
             <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;color:var(--txt);margin-bottom:2px">${isUnsupported ? '添加到桌面/收藏' : '添加到手机桌面'}</div>
-                <div style="font-size:11px;color:var(--sub)">${isUnsupported ? '电脑端：按Ctrl+D收藏本页，或点击浏览器菜单→创建快捷方式' : '像原生APP一样快速访问，无需每次打开浏览器'}</div>
+                <div style="font-size:13px;font-weight:600;color:var(--txt, #F3F4F6);margin-bottom:2px">${isUnsupported ? '添加到桌面/收藏' : '添加到手机桌面'}</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF)">${isUnsupported ? '电脑端：按Ctrl+D收藏本页，或点击浏览器菜单→创建快捷方式' : '像原生APP一样快速访问，无需每次打开浏览器'}</div>
             </div>
             <button class="btn btn-gold" id="btnAddToHome" style="padding:6px 12px;font-size:12px">${isUnsupported ? '收藏页面' : '立即添加'}</button>
         </div>`;
@@ -1033,7 +1033,7 @@ function generateSharePoster(userName, featureName, callback) {
 function renderAdminPage(){
     $('#mainContent').innerHTML = `
         <div id="adminPage">
-            <div id="adminTabs" style="display:flex;gap:0;overflow-x:auto;margin-bottom:20px;border-bottom:1px solid var(--brd);"></div>
+            <div id="adminTabs" style="display:flex;gap:0;overflow-x:auto;margin-bottom:20px;border-bottom:1px solid var(--brd, #2A3441);"></div>
             <div id="adminPanel"></div>
         </div>`;
     if(typeof initAdmin === 'function') initAdmin();
