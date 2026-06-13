@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API 诊断工具 - AI销冠大脑</title>
+<style>
+:root{--bg:#0B0F19;--card:#131926;--gold:#F59E0B;--txt:#F3F4F6;--sub:#9CA3AF;--brd:#2A3441;--red:#EF4444;--green:#22C55E}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+body{background:var(--bg);color:var(--txt);padding:40px;display:flex;justify-content:center;min-height:100vh}
+.container{max-width:700px;width:100%;background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:32px}
+h1{font-size:22px;margin-bottom:8px;background:linear-gradient(135deg,var(--gold),#FCD34D);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:var(--sub);font-size:13px;margin-bottom:24px}
+.section{margin-bottom:20px;padding:16px;background:rgba(255,255,255,.02);border:1px solid var(--brd);border-radius:12px}
+.section h3{font-size:14px;color:var(--gold);margin-bottom:10px}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
+.row:last-child{border:none}
+.label{color:var(--sub)}
+.value{color:var(--txt);font-weight:600}
+.value.ok{color:var(--green)}
+.value.fail{color:var(--red)}
+.value.warn{color:var(--gold)}
+.btn{background:linear-gradient(135deg,var(--gold),#FCD34D);color:#000;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;width:100%;margin-top:16px}
+.btn:hover{opacity:.9}
+.result{margin-top:16px;padding:16px;background:rgba(0,0,0,.3);border:1px solid var(--brd);border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;color:var(--sub)}
+.result b{color:var(--gold)}
+.result.error{color:var(--red)}
+.result.success{color:var(--green)}
+.hint{margin-top:16px;padding:12px;background:rgba(245,158,11,.05);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:13px;color:var(--gold);line-height:1.6}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🔍 API 诊断工具</h1>
+<div class="sub">检测阿里云百炼 API 连接状态，帮你定位问题</div>
+
+<div class="section">
+<h3>📡 当前配置</h3>
+<div class="row"><span class="label">API 端点</span><span class="value" id="apiEndpoint">https://dashscope.aliyuncs.com</span></div>
+<div class="row"><span class="label">API Key</span><span class="value" id="apiKeyStatus">检测中...</span></div>
+<div class="row"><span class="label">前端协议</span><span class="value" id="protocol">检测中...</span></div>
+</div>
+
+<div class="section">
+<h3>🧪 诊断测试</h3>
+<div class="row"><span class="label">网络连通</span><span class="value" id="network">待测试</span></div>
+<div class="row"><span class="label">API 认证</span><span class="value" id="auth">待测试</span></div>
+<div class="row"><span class="label">AI 响应</span><span class="value" id="ai">待测试</span></div>
+</div>
+
+<button class="btn" onclick="runDiagnostics()">🚀 开始诊断</button>
+<div class="result" id="result" style="display:none"></div>
+<div class="hint" id="hint" style="display:none"></div>
+
+<div class="section" style="margin-top:20px">
+<h3>💡 常见问题</h3>
+<div style="font-size:12px;color:var(--sub);line-height:1.8">
+<p><b>问题1：API Key 未配置</b></p>
+<p>→ 请先在主应用【后台管理】页面粘贴你的百炼 API Key 并保存。</p>
+<br>
+<p><b>问题2：API Key 无效</b></p>
+<p>→ 前往 <a href="https://bailian.console.aliyun.com" target="_blank" style="color:var(--gold)">阿里云百炼控制台</a> 检查 Key 是否已过期或被删除。</p>
+<br>
+<p><b>问题3：网络/CORS 错误</b></p>
+<p>→ 阿里云百炼支持跨域，一般不会出现此问题。如果持续报错，请检查你的网络环境是否限制了对外访问。</p>
+<br>
+<p><b>问题4：主页面能正常但诊断工具报错</b></p>
+<p>→ 诊断工具是独立文件，可能 Key 检测逻辑不同。请优先信任主页面的实际测试结果。</p>
+</div>
+</div>
+</div>
+
+<script>
+const API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+
+$('#protocol').textContent = window.location.protocol;
+
+function $(s){return document.querySelector(s);}
+
+async function runDiagnostics(){
+    const result = $('#result');
+    const hint = $('#hint');
+    const network = $('#network');
+    const auth = $('#auth');
+    const ai = $('#ai');
+    
+    result.style.display = 'block';
+    result.textContent = '正在诊断...';
+    result.className = 'result';
+    hint.style.display = 'none';
+    
+    let log = '';
+    let networkOk = false, authOk = false, aiOk = false;
+    
+    // 获取 API Key（从 localStorage 读取，和主应用一致）
+    const apiKey = localStorage.getItem('ai_sales_api_key') || '';
+    
+    if (!apiKey) {
+        $('#apiKeyStatus').textContent = '未配置';
+        $('#apiKeyStatus').className = 'value fail';
+        log += '【步骤0】API Key 状态\n';
+        log += '  ❌ 未检测到 API Key\n';
+        log += '  请在主应用【后台管理】中配置并保存 API Key\n';
+    } else if (apiKey.startsWith('sk-') && apiKey.length > 20) {
+        $('#apiKeyStatus').textContent = '已配置 (' + apiKey.substring(0, 7) + '...' + apiKey.substring(apiKey.length-4) + ')';
+        $('#apiKeyStatus').className = 'value ok';
+        log += '【步骤0】API Key 状态\n';
+        log += '  ✅ 已配置，格式正确\n';
+    } else {
+        $('#apiKeyStatus').textContent = '配置异常';
+        $('#apiKeyStatus').className = 'value warn';
+        log += '【步骤0】API Key 状态\n';
+        log += '  ⚠️ 已配置但格式异常（应以 sk- 开头且长度 > 20）\n';
+    }
+    
+    // 1. 检测网络连通
+    log += '\n【步骤1】检测网络连通...\n';
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        // 发送一个轻量请求，只检测网络层连通
+        const res = await fetch(API_URL, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({model:'qwen-plus',messages:[]}),
+            signal: controller.signal 
+        });
+        clearTimeout(timeout);
+        log += '  状态码: ' + res.status + ' ' + res.statusText + '\n';
+        networkOk = true;
+        network.textContent = '✅ 正常';
+        network.className = 'value ok';
+    } catch(e) {
+        log += '  ❌ 失败: ' + e.message + '\n';
+        network.textContent = '❌ 失败';
+        network.className = 'value fail';
+    }
+    
+    // 2. 检测 API 认证（Key 是否有效）
+    log += '\n【步骤2】检测 API 认证...\n';
+    if (!apiKey) {
+        log += '  ❌ 未配置 API Key，跳过认证测试\n';
+        auth.textContent = '❌ 未配置';
+        auth.className = 'value fail';
+    } else {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + apiKey
+                },
+                body: JSON.stringify({
+                    model: 'qwen-plus',
+                    messages: [{role: 'user', content: '你好，测试一下'}],
+                    max_tokens: 5
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timeout);
+            log += '  状态码: ' + res.status + ' ' + res.statusText + '\n';
+            
+            if (res.status === 401) {
+                log += '  ❌ 认证失败 (401)：API Key 无效或已过期\n';
+                auth.textContent = '❌ 无效';
+                auth.className = 'value fail';
+            } else if (res.status === 429) {
+                log += '  ⚠️ 请求过于频繁 (429)：触发了限流\n';
+                auth.textContent = '⚠️ 限流';
+                auth.className = 'value warn';
+                authOk = true; // 认证通过了，只是被限流
+            } else if (res.ok) {
+                log += '  ✅ 认证通过\n';
+                auth.textContent = '✅ 正常';
+                auth.className = 'value ok';
+                authOk = true;
+            } else {
+                const text = await res.text().catch(() => '');
+                log += '  ⚠️ 未预期响应: ' + text.substring(0, 200) + '\n';
+                auth.textContent = '⚠️ 异常';
+                auth.className = 'value warn';
+            }
+        } catch(e) {
+            log += '  ❌ 失败: ' + e.message + '\n';
+            auth.textContent = '❌ 失败';
+            auth.className = 'value fail';
+        }
+    }
+    
+    // 3. 检测 AI 能否正常响应
+    log += '\n【步骤3】检测 AI 响应...\n';
+    if (!authOk) {
+        log += '  ⏭️ 跳过（认证未通过）\n';
+        ai.textContent = '未测试';
+        ai.className = 'value warn';
+    } else {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + apiKey
+                },
+                body: JSON.stringify({
+                    model: 'qwen-plus',
+                    messages: [{role: 'user', content: '请回复一个"你好"'}],
+                    max_tokens: 50
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timeout);
+            
+            if (res.ok) {
+                const data = await res.json();
+                if (data.choices && data.choices[0] && data.choices[0].message) {
+                    const content = data.choices[0].message.content;
+                    log += '  ✅ AI 正常响应：' + content.substring(0, 50) + '\n';
+                    ai.textContent = '✅ 正常';
+                    ai.className = 'value ok';
+                    aiOk = true;
+                } else {
+                    log += '  ⚠️ 响应格式异常\n';
+                    log += '  返回内容: ' + JSON.stringify(data).substring(0, 200) + '\n';
+                    ai.textContent = '⚠️ 格式异常';
+                    ai.className = 'value warn';
+                }
+            } else {
+                log += '  ❌ 请求失败: ' + res.status + '\n';
+                ai.textContent = '❌ 失败';
+                ai.className = 'value fail';
+            }
+        } catch(e) {
+            log += '  ❌ 失败: ' + e.message + '\n';
+            ai.textContent = '❌ 失败';
+            ai.className = 'value fail';
+        }
+    }
+    
+    // 总结
+    log += '\n【诊断总结】\n';
+    if (aiOk) {
+        log += '✅ 一切正常！API Key 有效，AI 可以正常响应。\n';
+        log += '如果主页面仍有问题，请检查主应用的具体错误提示。';
+        result.className = 'result success';
+    } else if (!networkOk) {
+        log += '❌ 网络不通，无法连接到阿里云百炼服务器。\n';
+        log += '建议：检查你的网络环境，或者尝试刷新页面重试。';
+        result.className = 'result error';
+    } else if (!authOk) {
+        log += '❌ API Key 无效或未配置。\n';
+        log += '建议：前往【后台管理】配置正确的 API Key，或重新获取。';
+        result.className = 'result error';
+    } else if (!aiOk) {
+        log += '⚠️ 网络通、认证过，但 AI 未返回预期内容。\n';
+        log += '建议：可能是临时服务波动，稍后重试。';
+        result.className = 'result';
+    }
+    
+    result.textContent = log;
+    
+    // 提示
+    hint.style.display = 'block';
+    if (!apiKey) {
+        hint.innerHTML = '<b>🔧 修复建议：</b><br>你还没有配置 API Key。请在主应用页面点击【后台管理】→ 粘贴你的百炼 API Key → 点击保存。';
+    } else if (!authOk) {
+        hint.innerHTML = '<b>🔧 修复建议：</b><br>API Key 无效或已过期。请前往 <a href="https://bailian.console.aliyun.com" target="_blank" style="color:var(--gold)">阿里云百炼控制台</a> 重新获取有效的 API Key。';
+    } else if (!aiOk) {
+        hint.innerHTML = '<b>🔧 修复建议：</b><br>服务可能临时波动，请稍后重试。如果持续报错，建议检查阿里云百炼控制台的服务状态。';
+    } else {
+        hint.innerHTML = '<b>✅ 一切正常</b><br>API Key 有效，AI 服务正常。如果主页面仍有异常，请截图具体错误信息。';
+    }
+}
+</script>
+</body>
+</html>

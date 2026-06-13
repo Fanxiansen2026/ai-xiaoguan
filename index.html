@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0B0F19">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI销冠驾驶舱">
+<meta name="description" content="你销售路上的军师，让每一次沟通都变成成交">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%23F59E0B' width='192' height='192' rx='40'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='80' font-weight='bold' fill='%23000'%3E舱%3C/text%3E%3C/svg%3E">
+<title>AI销冠驾驶舱 - 智能销售赋能系统</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="overlay" id="sidebarOverlay"></div>
+<aside class="sidebar" id="sidebar">
+<div class="logo"><div class="logo-icon">舱</div>AI销冠驾驶舱</div>
+<nav class="nav" id="mainNav"></nav>
+<div class="sidebar-footer" id="userProfileBtn">
+<div class="user-card">
+<img src="https://bailian-bmp-pre.oss-cn-hangzhou.aliyuncs.com/public/system_agent/PlaceHolder.png" class="avatar" id="sidebarAvatar">
+<div class="user-info">
+<div class="user-name"><span id="sidebarName">销售精英</span> <span class="user-rank" id="sidebarRank">青铜</span></div>
+<div class="progress-bar"><div class="progress-fill" id="sidebarProgress" style="width:0%"></div></div>
+<div class="progress-text"><span id="syncName">AI默契指数</span>: <span id="sidebarProgressText">0%</span></div>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<main class="main">
+<header class="header">
+<div class="header-left">
+<button class="menu-btn" id="menuBtn">☰</button>
+<button class="back-btn" id="btnBack">←</button>
+<span class="breadcrumb" id="pageTitle">首页</span>
+</div>
+<div class="top-clock" id="topClock">00:00:00</div>
+</header>
+<div class="content" id="mainContent"></div>
+</main>
+<div class="toast" id="toast"></div>
+<div class="level-up" id="levelUp"><h2 id="levelUpTitle">段位提升！</h2><p id="levelUpDesc" style="color:var(--sub);font-size:13px"></p></div>
+
+<!-- ===== API Key 配置弹窗 ===== -->
+<div class="activation-modal" id="apiKeyModal">
+    <div class="activation-box">
+        <div class="activation-icon">🔑</div>
+        <h2>首次配置 API Key</h2>
+        <p>请输入你的百炼 API Key（以 sk- 开头）<br>配置一次，永久保存，无需重复输入</p>
+        <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" autocomplete="off">
+        <button class="btn-start" onclick="saveApiKeyFromModal()">💾 保存并启动</button>
+        <div class="activation-error" id="apiKeyError"></div>
+        <div class="activation-contact">
+            <strong>💡 没有 API Key？</strong><br>
+            前往 <a href="https://bailian.console.aliyun.com" target="_blank" style="color:var(--gold)">阿里云百炼控制台</a> 获取<br>
+            或联系范先森协助配置
+        </div>
+    </div>
+</div>
+
+<!-- ===== 激活码弹窗 ===== -->
+<div class="activation-modal" id="activationModal">
+    <div class="activation-box">
+        <button class="activation-close" id="btnCloseActivation" onclick="closeActivationModal()">✕</button>
+        <div class="activation-icon">🔐</div>
+        <h2>解锁高阶功能</h2>
+        <p>此功能为付费专属，输入激活码立即解锁<br>或联系范先森开通</p>
+        <input type="text" id="activationInput" placeholder="XXXX-XXXX-XXXX" maxlength="20" autocomplete="off">
+        <button class="btn-start" id="btnActivate" onclick="verifyActivationCode()">⚡ 立即激活</button>
+        <div class="activation-error" id="activationError"></div>
+        <div class="activation-contact">
+            <strong>💡 没有激活码？</strong><br>
+            联系范先森开通专属权限<br>
+            微信：<strong>15871485234</strong>
+        </div>
+    </div>
+</div>
+<div class="activation-status" id="activationStatus" style="display:none" onclick="if(confirm('确定退出并清除激活状态？')){clearActivation();location.reload();}"></div>
+
+<script src="config.js"></script>
+<script src="core.js"></script>
+<script src="features.js"></script>
+<script src="admin.js"></script>
+<script src="api.js"></script>
+<script src="init.js"></script>
+<script src="埋点采集代码_v2.js"></script>
+</body>
+</html>
