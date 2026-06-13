@@ -1,4 +1,4 @@
-:root{--bg:#0B0F19;--card:#131926;--input:#1A2235;--gold:#F59E0B;--gold-l:#FCD34D;--gold-d:#B45309;--grad:linear-gradient(135deg,var(--gold),var(--gold-l),#D97706);--txt:#F3F4F6;--sub:#9CA3AF;--brd:#2A3441;--green:#22C55E;--wxbg:#0F141E;--red:#EF4444;--ok:#10B981}
+:root{--bg:#0B0F19;--card:#131926;--input:#1A2235;--gold:#F59E0B;--gold-l:#FCD34D;--gold-d:#B45309;--accent:#F59E0B;--grad:linear-gradient(135deg,var(--gold),var(--gold-l),#D97706);--txt:#F3F4F6;--sub:#9CA3AF;--brd:#2A3441;--green:#22C55E;--wxbg:#0F141E;--red:#EF4444;--ok:#10B981}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;background:var(--bg);color:var(--txt);display:flex;height:100vh;height:100dvh;overflow:hidden}
 .sidebar{width:260px;background:var(--card);border-right:1px solid var(--brd);display:flex;flex-direction:column;flex-shrink:0;transition:transform .3s;z-index:100}
