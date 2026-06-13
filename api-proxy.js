@@ -3,7 +3,7 @@
 // 真实 API Key 永远不暴露在前端
 
 // Worker 后端地址（部署后替换为真实地址）
-const WORKER_URL = 'https://ai-xiaoguan-api.787786275.workers.dev';
+const WORKER_URL = 'https://api.54xiaoguan.cn';
 
 // 用户唯一标识（基于设备指纹）
 function getDeviceId() {
