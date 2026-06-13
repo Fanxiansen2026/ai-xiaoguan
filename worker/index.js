@@ -81,6 +81,7 @@ function getTodayKey() {
 // 如果没有绑定 KV，使用内存存储（Worker 重启会丢失，但免费）
 
 let rateLimitCache = {}; // fallback 内存缓存
+let activationCache = {}; // 激活信息内存缓存（无KV时的备用）
 
 async function getCallCount(env, userId) {
   if (env.RATE_LIMIT_KV) {
@@ -106,20 +107,22 @@ async function incrementCallCount(env, userId) {
 
 // 存储激活信息
 async function saveActivation(env, userId, codeInfo) {
+  const data = JSON.stringify({
+    code: codeInfo.code,
+    type: codeInfo.type,
+    days: codeInfo.days,
+    activatedAt: Date.now(),
+    expiresAt: Date.now() + codeInfo.days * 86400 * 1000
+  });
   if (env.RATE_LIMIT_KV) {
     const key = `activation:${userId}`;
-    // 设置过期时间：激活码天数 + 24小时缓冲
     const ttl = codeInfo.days * 86400 + 3600;
-    await env.RATE_LIMIT_KV.put(key, JSON.stringify({
-      code: codeInfo.code,
-      type: codeInfo.type,
-      days: codeInfo.days,
-      activatedAt: Date.now(),
-      expiresAt: Date.now() + codeInfo.days * 86400 * 1000
-    }), { expirationTtl: ttl });
+    await env.RATE_LIMIT_KV.put(key, data, { expirationTtl: ttl });
     return true;
   }
-  return false; // 无KV时无法持久化，但可以临时工作
+  // 无KV时：存入内存缓存（Worker实例生命周期内有效）
+  activationCache[`activation:${userId}`] = data;
+  return true;
 }
 
 async function getActivation(env, userId) {
@@ -127,7 +130,9 @@ async function getActivation(env, userId) {
     const data = await env.RATE_LIMIT_KV.get(`activation:${userId}`);
     return data ? JSON.parse(data) : null;
   }
-  return null;
+  // 无KV时：从内存缓存读取
+  const data = activationCache[`activation:${userId}`];
+  return data ? JSON.parse(data) : null;
 }
 
 // ===== 路由处理 =====
