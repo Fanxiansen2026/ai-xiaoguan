@@ -61,7 +61,7 @@ function initWorkspace(featureId){
                     <div class="quick-reply">那我们下周安排个技术演示？</div>
                 </div>
                 <div class="wx-input-bar">
-                    <button class="wx-voice-btn" id="wxVoiceBtn" data-target="roleplayInput">🎙️</button>
+                    <button class="wx-voice-btn" id="wxVoiceBtn" data-target="roleplayInput" onclick="toggleVoiceRecording(this)">🎙️</button>
                     <textarea class="wx-input" id="roleplayInput" placeholder="输入你的话术..." rows="1"></textarea>
                     <button class="wx-send-btn" id="btnRoleplaySend">发送</button>
                 </div>
@@ -137,7 +137,7 @@ function initWorkspace(featureId){
                 ${f.allowFile?'<div class="wx-extra-item" data-type="file"><div class="wx-extra-icon">📄</div>文件</div>':''}
             </div>`:''}
             <div class="wx-input-bar">
-                ${f.allowVoice?'<button class="wx-voice-btn" id="wxVoiceBtn" data-target="wxInputDisplay">🎙️</button>':''}
+                ${f.allowVoice?'<button class="wx-voice-btn" id="wxVoiceBtn" data-target="wxInputDisplay" onclick="toggleVoiceRecording(this)">🎙️</button>':''}
                 <textarea class="wx-input" id="wxInputDisplay" placeholder="请输入或长按左侧语音..."></textarea>
                 ${showUpload?'<button class="wx-plus-btn" id="wxPlusBtn">➕</button>':''}
                 <button class="wx-send-btn" id="btnGenerate2">发送</button>
