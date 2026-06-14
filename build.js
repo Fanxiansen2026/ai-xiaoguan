@@ -1,5 +1,5 @@
 // ============================================================
-//  AI销冠驾驶舱 - 生产构建脚本
+//  AI销冠大脑 - 生产构建脚本
 //  功能：代码混淆 + 打包 + 输出到 dist/ 目录
 //
 //  使用方法：
@@ -60,7 +60,7 @@ function devBuild() {
     if (fs.existsSync(src)) {
       let content = fs.readFileSync(src, 'utf-8');
       // 添加文件头注释
-      content = `// ${file} - AI销冠驾驶舱 v2.0\n// Build: ${new Date().toISOString().slice(0,19)}\n` + content;
+      content = `// ${file} - AI销冠大脑 v2.0\n// Build: ${new Date().toISOString().slice(0,19)}\n` + content;
       fs.writeFileSync(dst, content);
       console.log(`  ✓ ${file}`);
     }
@@ -148,7 +148,7 @@ function prodBuild() {
 // ===== 主流程 =====
 const isProd = process.argv.includes('--prod');
 
-console.log(`\n🚀 AI销冠驾驶舱 构建${isProd ? '（生产模式 - 混淆+加密）' : '（开发模式 - 快速）'}`);
+console.log(`\n🚀 AI销冠大脑 构建${isProd ? '（生产模式 - 混淆+加密）' : '（开发模式 - 快速）'}`);
 console.log('━'.repeat(45));
 
 cleanDist();
