@@ -1,6 +1,6 @@
 // ============================================================
-//  AI销冠驾驶舱 - Cloudflare Workers 后端服务 v2.0
-//  功能：激活码验证 + API代理 + 用户限流 + 行为追踪 + 码管理
+//  AI销冠大脑 - Cloudflare Workers 后端服务 v2.1
+//  功能：激活码验证 + API代理 + 用户限流 + 行为追踪 + 码管理 + 配置管理
 // ============================================================
 
 // ===== 配置区 =====
@@ -10,6 +10,9 @@ const ADMIN_PASSWORD = 'xiaoguan2024';
 
 // 激活码列表（150个）
 const ACTIVATION_CODES = {
+  // === 管理员测试码 ===
+  '88888888': { type: 'admin', days: 36500, label: '管理员测试码' },
+
   // === 7日试用卡 (50个) ===
   'TRY7-E47F-A8A6': { type: 'trial7', days: 7, label: '7日体验卡' },
   'TRY7-7L36-T7DD': { type: 'trial7', days: 7, label: '7日体验卡' },
@@ -242,19 +245,20 @@ async function saveCodeBinding(env, code, deviceId, info) {
   // 记录当前设备
   const existingDeviceIds = Object.keys(binding.devices);
 
-  if (!binding.devices[deviceId]) {
-    // 新设备首次绑定此码
-    binding.devices[deviceId] = {
-      firstActivatedAt: now,
-      lastActiveAt: now,
-      userAgent: info.userAgent || '',
-      ip: info.ip || '',
-      sessions: 1,
-      chats: 0,
-      featureUsage: {},
-      pageViews: {},
-      totalDuration: 0
-    };
+        if (!binding.devices[deviceId]) {
+          // 新设备首次绑定此码
+          binding.devices[deviceId] = {
+            firstActivatedAt: now,
+            lastActiveAt: now,
+            userAgent: info.userAgent || '',
+            ip: info.ip || '',
+            sessions: 1,
+            chats: 0,
+            featureUsage: {},
+            pageViews: {},
+            totalDuration: 0,
+            totalTokens: 0  // ★ 新增：Token 消耗统计
+          };
     binding.totalActivations++;
   } else {
     // 已知设备重新激活/使用
@@ -290,6 +294,10 @@ async function updateDeviceStats(env, code, deviceId, eventType, eventData) {
   if (eventType === 'session_end' && eventData.duration) {
     device.totalDuration += eventData.duration;
   }
+  // ★ 记录 token 消耗
+  if (eventType === 'token_usage' && eventData.totalTokens) {
+    device.totalTokens = (device.totalTokens || 0) + eventData.totalTokens;
+  }
 
   binding.lastActivityAt = Date.now();
   await setKV(env, `code:${code}`, binding);
@@ -317,7 +325,7 @@ export default {
 
       // 健康检查
       if (path === '/health') {
-        return json({ status: 'ok', time: Date.now(), version: '2.0', totalCodes: Object.keys(ACTIVATION_CODES).length });
+        return json({ status: 'ok', time: Date.now(), version: '2.1', totalCodes: Object.keys(ACTIVATION_CODES).length });
       }
 
       // ========== 接口1: 激活码验证（核心改造） ==========
@@ -342,6 +350,24 @@ export default {
 
         // ★★★ 核心改动：记录激活并检查多设备绑定 ★★★
         const now = Date.now();
+        
+        // 管理员测试码：跳过设备绑定，直接返回成功
+        if (code === '88888888') {
+          const userActivation = {
+            code, type: 'admin', days: 36500, label: '管理员测试码',
+            activatedAt: now, expiresAt: now + 36500 * 86400 * 1000,
+            deviceId
+          };
+          await setKV(env, `activation:${deviceId}`, userActivation, 36500 * 86400);
+          console.log(`[激活] 管理员测试码激活，设备=${deviceId}`);
+          return json({
+            valid: true, type: 'admin', days: 36500, label: '管理员测试码',
+            expiresAt: now + 36500 * 86400 * 1000,
+            message: '管理员测试码激活成功！有效期 100年',
+            deviceCount: 1
+          });
+        }
+        
         const { binding, isNewDevice, deviceCount } = await saveCodeBinding(env, code, deviceId, { ip: clientIP, userAgent });
 
         // 同时保存用户的激活状态（供 check-status 使用）
@@ -428,6 +454,7 @@ export default {
 
         console.log(`[API代理] 用户=${userId || 'unknown'}, 模型=${model || 'qwen-plus'}`);
 
+        const startTime = Date.now();
         const dashscopeRes = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -446,7 +473,23 @@ export default {
           return json({ error: `API Error ${dashscopeRes.status}`, message: errText.slice(0, 500) }, 502);
         }
 
-        return json(await dashscopeRes.json());
+        const result = await dashscopeRes.json();
+        
+        // ★ 记录 token 消耗
+        if (userId && result.usage?.total_tokens) {
+          try {
+            const userActivation = await getKV(env, `activation:${userId}`);
+            if (userActivation && userActivation.code) {
+              await updateDeviceStats(env, userActivation.code, userId, 'token_usage', {
+                totalTokens: result.usage.total_tokens
+              });
+            }
+          } catch(e) {
+            console.error('[Token追踪错误]', e.message);
+          }
+        }
+        
+        return json(result);
       }
 
       // ========== 接口4: 查询剩余次数 ==========
@@ -497,7 +540,62 @@ export default {
         }
       }
 
-      // ========== 接口6: 管理员 - 激活码全量列表（新）==========
+      // ===== Whisper 语音识别代理（阿里云 Paraformer 兼容模式）=====
+      if (path === '/whisper') {
+        if (request.method !== 'POST') {
+          return json({ error: 'Method Not Allowed' }, 405);
+        }
+        try {
+          const formData = await request.formData();
+          const audioFile = formData.get('audio');
+          if (!audioFile) {
+            return json({ error: 'No audio file' }, 400);
+          }
+
+          // 调用阿里云 Dashscope Paraformer API（兼容 OpenAI Whisper 格式）
+          const whisperForm = new FormData();
+          whisperForm.append('file', audioFile, 'audio.webm');
+          whisperForm.append('model', 'whisper-1');
+          whisperForm.append('language', 'zh');
+          
+          const resp = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${DASHSCOPE_API_KEY}` },
+            body: whisperForm
+          });
+          
+          const result = await resp.json();
+          if (!resp.ok) {
+            console.error(`[Whisper 失败] ${resp.status}: ${JSON.stringify(result).slice(0, 200)}`);
+            return json({ error: result.error?.message || '语音识别失败', whisperError: true }, resp.status);
+          }
+          return json({ text: result.text });
+        } catch(e) {
+          console.error('[Whisper 异常]', e.message);
+          return json({ error: e.message, whisperError: true }, 500);
+        }
+      }
+
+      // ========== 接口6: 管理员 - 配置管理（Whisper Key 等）==========
+      if (path === '/admin/config') {
+        if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+        let body;
+        try { body = await request.json(); } catch(e) { return json({ error: 'Invalid body' }, 400); }
+        
+        if (body.adminPassword !== ADMIN_PASSWORD) return json({ error: 'Unauthorized' }, 401);
+        
+        if (body.action === 'get') {
+          const whisperKey = await getKV(env, 'config:whisper_key') || '';
+          return json({ success: true, whisperKey });
+        } else if (body.action === 'save') {
+          if (body.whisperKey) {
+            await setKV(env, 'config:whisper_key', body.whisperKey.trim());
+          }
+          return json({ success: true, message: '配置已保存' });
+        }
+      }
+
+      // ========== 接口7: 管理员 - 激活码全量列表（新）==========
       if (path === '/admin/codes') {
         if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
         let body;
@@ -586,7 +684,7 @@ export default {
           }
 
           // 核心指标
-          let totalSessions = 0, totalChats = 0, totalDuration = 0;
+          let totalSessions = 0, totalChats = 0, totalDuration = 0, totalTokensAll = 0;
           const featureUsageAll = {};
           const pageViewsAll = {};
           const dailyActive = {};
@@ -595,9 +693,15 @@ export default {
           for (const binding of allBindings) {
             for (const [devId, dev] of Object.entries(binding.devices)) {
               uniqueDevices.add(devId);
-              totalSessions += dev.sessions || 0;
-              totalChats += dev.chats || 0;
-              totalDuration += dev.totalDuration || 0;
+              const sessions = dev.sessions || 0;
+              const chats = dev.chats || 0;
+              const duration = dev.totalDuration || 0;
+              const tokens = dev.totalTokens || 0;
+
+              totalSessions += sessions;
+              totalChats += chats;
+              totalDuration += duration;
+              totalTokensAll += tokens;
 
               // 功能使用汇总
               if (dev.featureUsage) {
@@ -639,18 +743,29 @@ export default {
             const binding = await getCodeBinding(env, code);
             if (!binding) continue;
 
-            const deviceList = Object.values(binding.devices);
+            const deviceList = Object.entries(binding.devices);
+            const codeTotalTokens = deviceList.reduce((s, [, d]) => s + (d.totalTokens || 0), 0);
+            
             codeDetails.push({
               code,
               type: binding.type,
               label: binding.label,
               deviceCount: deviceList.length,
-              totalSessions: deviceList.reduce((s, d) => s + (d.sessions || 0), 0),
-              totalChats: deviceList.reduce((s, d) => s + (d.chats || 0), 0),
-              totalDurationMin: Math.round(deviceList.reduce((s, d) => s + (d.totalDuration || 0), 0) / 60),
+              totalSessions: deviceList.reduce((s, [, d]) => s + (d.sessions || 0), 0),
+              totalChats: deviceList.reduce((s, [, d]) => s + (d.chats || 0), 0),
+              totalDurationMin: Math.round(deviceList.reduce((s, [, d]) => s + (d.totalDuration || 0), 0) / 60),
+              totalTokens: codeTotalTokens,
               firstUsed: binding.createdAt,
               lastUsed: binding.lastActivityAt,
-              isExpired: now > binding.createdAt + (ACTIVATION_CODES[code]?.days || 30) * 86400 * 1000
+              isExpired: now > binding.createdAt + (ACTIVATION_CODES[code]?.days || 30) * 86400 * 1000,
+              devices: deviceList.map(([devId, dev]) => ({
+                deviceId: devId,
+                sessions: dev.sessions || 0,
+                chats: dev.chats || 0,
+                totalDurationMin: Math.round((dev.totalDuration || 0) / 60),
+                totalTokens: dev.totalTokens || 0,
+                lastActiveAt: dev.lastActiveAt
+              }))
             });
           }
 
@@ -658,9 +773,10 @@ export default {
             success: true,
             overview: {
               totalVisitors: uniqueDevices.size,
-              todayNewVisitors: 0, // 需要额外统计
+              todayNewVisitors: 0,
               totalActivations: allBindings.length,
               totalMessages: totalChats,
+              totalTokens: totalTokensAll,
               totalSessions,
               totalDurationMin: Math.round(totalDuration / 60)
             },
@@ -679,7 +795,7 @@ export default {
       // 未匹配路由
       return json({
         error: 'Not Found',
-        availableEndpoints: ['/health', '/verify', '/check-status', '/chat', '/quota', '/track', '/admin/codes', '/admin/stats']
+        availableEndpoints: ['/health', '/verify', '/check-status', '/chat', '/quota', '/track', '/whisper', '/admin/config', '/admin/codes', '/admin/stats']
       }, 404);
 
     } catch (error) {

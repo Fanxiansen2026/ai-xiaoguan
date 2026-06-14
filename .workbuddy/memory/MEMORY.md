@@ -39,3 +39,7 @@
 - KV 持久化存储已绑定，否则 Worker 无状态导致激活验证通过但对话报过期
 - `.workers.dev` 域名在国内被墙/极慢，必须绑定自定义域名
 - 域名备案中但 Cloudflare 是海外服务不需要备案
+- **代码混淆**：已用 javascript-obfuscator 实现，`build.js --prod` 生成混淆版到 `dist/`，复制回根目录后部署
+- **话术库展开修复**：`features.js` 和 `core.js` 重复绑定点击事件，移除 `core.js` 第444行后修复
+- **Worker v2.1**：已添加 `/admin/config` 端点、`/admin/stats` 返回 `totalTokens`、修复 `/whisper` 端点
+- **Git 推送**：若被 GitHub secret scanning 拦截，需 `git reset --hard origin/main` 重置后重新提交（不能只删文件）
