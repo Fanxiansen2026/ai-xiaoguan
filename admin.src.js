@@ -87,7 +87,7 @@ function escapeHtml(str) {
 
 function initAdmin(){
     const tabs=$('#adminTabs');
-    tabs.innerHTML=`<div class="admin-tab active" data-admin="global">全局与概念</div><div class="admin-tab" data-admin="nav">导航分组管理</div><div class="admin-tab" data-admin="ranks">段位系统管理</div><div class="admin-tab" data-admin="scripts">话术库管理</div><div class="admin-tab" data-admin="activation">激活码管理</div><div class="admin-tab" data-admin="features">功能排序</div><div class="admin-tab" data-admin="analytics">数据看板</div><div class="admin-tab" data-admin="config">配置管理</div><div class="admin-tab" data-admin="export">数据导出</div>`;
+    tabs.innerHTML=`<div class="admin-tab active" data-admin="global">全局与概念</div><div class="admin-tab" data-admin="nav">导航分组管理</div><div class="admin-tab" data-admin="ranks">段位系统管理</div><div class="admin-tab" data-admin="scripts">话术库管理</div><div class="admin-tab" data-admin="activation">激活码管理</div><div class="admin-tab" data-admin="features">功能排序</div><div class="admin-tab" data-admin="analytics">数据看板</div><div class="admin-tab" data-admin="tokens">Token管理</div><div class="admin-tab" data-admin="config">配置管理</div><div class="admin-tab" data-admin="export">数据导出</div>`;
     
     // 默认显示全局设置（不需要密码）
     renderAdminPanel('global');
@@ -710,6 +710,8 @@ async function loadAnalyticsDashboard() {
                         <th style="text-align:center;padding:8px 6px;font-weight:600">会话</th>
                         <th style="text-align:center;padding:8px 6px;font-weight:600">对话</th>
                         <th style="text-align:center;padding:8px 6px;font-weight:600">时长(分)</th>
+                        <th style="text-align:center;padding:8px 6px;font-weight:600">激活时间</th>
+                        <th style="text-align:center;padding:8px 6px;font-weight:600">Token消耗</th>
                         <th style="text-align:center;padding:8px 6px;font-weight:600">最后使用</th>
                     </tr></thead>
                     <tbody>`;
@@ -717,6 +719,7 @@ async function loadAnalyticsDashboard() {
         codeDetails.forEach((c, idx) => {
             const statusColor = c.isExpired ? 'var(--red, #EF4444)' : c.deviceCount > 0 ? 'var(--ok, #10B981)' : 'var(--sub, #9CA3AF)';
             const lastDate = c.lastUsed ? new Date(c.lastUsed).toLocaleDateString('zh-CN') : '-';
+            const firstDate = c.firstUsed ? new Date(c.firstUsed).toLocaleDateString('zh-CN') : '-';
             const codeId = `code-detail-${idx}`;
             html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer" onclick="toggleCodeDetail('${codeId}')" id="row-${codeId}">
                 <td style="padding:8px 6px;font-family:monospace;font-size:12px;color:var(--gold, #F59E0B)">${c.code}</td>
@@ -725,10 +728,12 @@ async function loadAnalyticsDashboard() {
                 <td style="padding:8px 6px;text-align:center;font-size:11px">${c.totalSessions}</td>
                 <td style="padding:8px 6px;text-align:center;font-size:11px;color:var(--ok, #10B981)">${c.totalChats}</td>
                 <td style="padding:8px 6px;text-align:center;font-size:11px">${c.totalDurationMin}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:11px;color:var(--accent)">${firstDate}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:11px;color:#8B5CF6">${c.totalTokens || 0}</td>
                 <td style="padding:8px 6px;text-align:center;font-size:11px;color:${statusColor}">${lastDate}</td>
             </tr>
             <tr id="${codeId}" style="display:none">
-                <td colspan="7" style="padding:12px;background:rgba(0,0,0,.15);font-size:12px">
+                <td colspan="9" style="padding:12px;background:rgba(0,0,0,.15);font-size:12px">
                     ${renderCodeDetail(c)}
                 </td>
             </tr>`;
@@ -940,6 +945,8 @@ function bindAdminEvents(tab) {
         const btnSave = document.getElementById('btnSaveConf');
         if (btnSave) btnSave.onclick = saveFeatureConfig;
         
+    } else if (tab === 'tokens') {
+        // Token 管理页面不需要额外的事件绑定
     } else if (tab === 'nav') {
         const btnSave = document.getElementById('btnSaveNav');
         if (btnSave) btnSave.onclick = () => {
@@ -1028,5 +1035,85 @@ async function saveConfigSettings() {
         if (status) {
             status.innerHTML = '<div style="color:var(--red, #EF4444);padding:8px;background:rgba(239,68,68,0.1);border-radius:6px;">❌ 网络错误：' + e.message + '</div>';
         }
+    }
+}
+
+// ============================================================
+// Token 消耗管理
+// ============================================================
+async function loadTokenManagement() {
+    const container = document.getElementById('tokenContent');
+    if (!container) return;
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub, #9CA3AF);">⏳ 正在加载 Token 消耗数据...</div>';
+    
+    try {
+        const WORKER_URL = window.AiApiProxy?.WORKER_URL || 'https://api.54xiaoguan.cn';
+        const res = await fetch(`${WORKER_URL}/admin/stats`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminPassword: ADMIN_PASSWORD })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || '未知错误');
+        
+        const codeDetails = data.codeDetails || [];
+        const totalTokens = data.overview?.totalTokens || 0;
+        
+        // 按 Token 消耗排序
+        const sorted = [...codeDetails].sort((a, b) => (b.totalTokens || 0) - (a.totalTokens || 0));
+        
+        let html = '';
+        
+        // 总览卡片
+        html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:24px;">
+            <div style="text-align:center;padding:20px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
+                <div style="font-size:32px;font-weight:bold;color:#8B5CF6">${totalTokens}</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-top:4px">总 Token 消耗</div>
+            </div>
+            <div style="text-align:center;padding:20px;background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);">
+                <div style="font-size:32px;font-weight:bold;color:var(--gold, #F59E0B)">${codeDetails.length}</div>
+                <div style="font-size:11px;color:var(--sub, #9CA3AF);margin-top:4px">已激活码数量</div>
+            </div>
+        </div>`;
+        
+        // 表格
+        html += `<div style="background:var(--input, #1A2235);border-radius:10px;border:1px solid var(--brd, #2A3441);padding:16px;overflow-x:auto;">
+            <table style="width:100%;font-size:12px;border-collapse:collapse">
+                <thead><tr style="border-bottom:1px solid var(--brd, #2A3441);color:var(--sub, #9CA3AF)">
+                    <th style="text-align:left;padding:8px 6px;font-weight:600">激活码</th>
+                    <th style="text-align:left;padding:8px 6px;font-weight:600">类型</th>
+                    <th style="text-align:center;padding:8px 6px;font-weight:600">对话次数</th>
+                    <th style="text-align:center;padding:8px 6px;font-weight:600">Token 消耗</th>
+                    <th style="text-align:center;padding:8px 6px;font-weight:600">平均每次</th>
+                    <th style="text-align:center;padding:8px 6px;font-weight:600">最后使用</th>
+                </tr></thead>
+                <tbody>`;
+        
+        sorted.forEach(c => {
+            const avgTokens = c.totalChats > 0 ? Math.round(c.totalTokens / c.totalChats) : 0;
+            const lastDate = c.lastUsed ? new Date(c.lastUsed).toLocaleDateString('zh-CN') : '-';
+            const typeLabels = { trial7: '7日卡', vip30: '月卡', trial1: '日卡' };
+            html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+                <td style="padding:8px 6px;font-family:monospace;font-size:12px;color:var(--gold, #F59E0B)">${c.code}</td>
+                <td style="padding:8px 6px;font-size:11px">${typeLabels[c.type] || c.type}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:11px;color:var(--ok, #10B981)">${c.totalChats}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:11px;color:#8B5CF6;font-weight:600">${c.totalTokens || 0}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:11px;color:var(--sub, #9CA3AF)">${avgTokens}</td>
+                <td style="padding:8px 6px;text-align:center;font-size:11px;color:var(--sub, #9CA3AF)">${lastDate}</td>
+            </tr>`;
+        });
+        
+        html += `       </tbody>
+            </table>
+        </div>`;
+        
+        container.innerHTML = html;
+        
+    } catch(e) {
+        console.error('[加载 Token 管理失败]', e);
+        container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red, #EF4444);">
+            ❌ 加载失败: ${e.message}
+            <div style="font-size:12px;color:var(--sub, #9CA3AF);margin-top:8px">请确保 Worker 已部署最新版本</div>
+        </div>`;
     }
 }

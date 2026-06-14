@@ -139,7 +139,7 @@ function initWorkspace(featureId){
             <div class="wx-input-bar">
                 ${f.allowVoice?'<button class="wx-voice-btn" id="wxVoiceBtn" data-target="wxInputDisplay" onclick="toggleVoiceRecording(this)">🎙️</button>':''}
                 <textarea class="wx-input" id="wxInputDisplay" placeholder="请输入或长按左侧语音..."></textarea>
-                ${showUpload?'<button class="wx-plus-btn" id="wxPlusBtn" onclick="document.getElementById(\'fileInput\').click()">➕</button>':''}
+                ${showUpload?'<button class="wx-plus-btn" id="wxPlusBtn">➕</button>':''}
                 <button class="wx-send-btn" id="btnGenerate2">发送</button>
             </div>
             ${showUpload?'<input type="file" id="fileInput" multiple style="display:none">':''}
@@ -155,6 +155,14 @@ function initWorkspace(featureId){
         const newBtn = btnGen2.cloneNode(true);
         btnGen2.parentNode.replaceChild(newBtn, btnGen2);
         newBtn.addEventListener('click', () => handleGenerate(false));
+    }
+    // 绑定上传按钮事件（修复手机端上传按钮不可用的问题）
+    if(showUpload) {
+        const wxPlusBtn = document.getElementById('wxPlusBtn');
+        const fileInput = document.getElementById('fileInput');
+        if(wxPlusBtn && fileInput) {
+            wxPlusBtn.addEventListener('click', () => fileInput.click());
+        }
     }
 }
 
