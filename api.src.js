@@ -2,149 +2,164 @@
 const API_BASE = "https://api.54xiaoguan.cn";
 let lastUserPrompt = '';
 
-// ===== 语音输入模块 =====
+// ===== 语音输入模块（微信模式）=====
 let isRecording = false;
 let mediaRecorder = null;
 let audioChunks = [];
+let recordingStream = null; // 保存stream引用，用于释放麦克风
 
-// 切换录音状态（toggle）
-async function toggleVoiceRecording(btnEl) {
-    console.log('[语音] toggleVoiceRecording 被调用, isRecording=', isRecording);
-    if (isRecording) {
-        // 停止录音
-        console.log('[语音] 停止录音, mediaRecorder.state=', mediaRecorder?.state);
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-        }
-        return;
-    }
-    // 开始录音
+// 开始录音（按下按钮时调用）
+async function startVoiceRecording() {
+    if (isRecording) return; // 防止重复触发
+    
+    console.log('[语音] 开始录音（微信模式）');
     try {
-        console.log('[语音] 开始请求麦克风权限...');
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // 获取麦克风权限
+        recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         console.log('[语音] 麦克风权限获取成功');
-        // 优先用 webm， fallback 到默认
+        
+        // 创建 MediaRecorder
         const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
-        mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        mediaRecorder = mimeType ? new MediaRecorder(recordingStream, { mimeType }) : new MediaRecorder(recordingStream);
         console.log('[语音] MediaRecorder 创建成功, mimeType=', mediaRecorder.mimeType);
+        
         audioChunks = [];
         mediaRecorder.ondataavailable = (e) => { 
-            if (e.data.size > 0) { audioChunks.push(e.data); console.log('[语音] 收到音频数据, size=', e.data.size); }
+            if (e.data.size > 0) { 
+                audioChunks.push(e.data); 
+                console.log('[语音] 收到音频数据, size=', e.data.size); 
+            }
         };
+        
         mediaRecorder.onstop = async () => {
             console.log('[语音] onstop 触发, audioChunks.length=', audioChunks.length);
-            stream.getTracks().forEach(t => t.stop());
+            // 释放麦克风（重要！解决"手机刘海屏一直显示录音状态"的问题）
+            recordingStream.getTracks().forEach(t => t.stop());
+            recordingStream = null;
+            
+            // 创建音频Blob
             const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
             console.log('[语音] 音频Blob创建成功, size=', blob.size, ', type=', blob.type);
-            await processAudio(blob);
+            
+            // 直接发送语音消息（不转文字）
+            await sendVoiceMessage(blob);
         };
+        
         mediaRecorder.start();
-        console.log('[语音] 录音已开始');
         isRecording = true;
-        btnEl.classList.add('recording');
-        showToast('🔴 正在录音... 说完了再点一下停止');
-        let tip = document.getElementById('recordingTip');
-        if (!tip) {
-            tip = document.createElement('div');
-            tip.id = 'recordingTip';
-            tip.className = 'recording-tip';
-            tip.textContent = '🔴 正在录音...点击话筒停止';
-            document.body.appendChild(tip);
+        console.log('[语音] 录音已开始');
+        
+        // 更新按钮样式
+        const btn = document.getElementById('wxVoiceBtn');
+        if (btn) {
+            btn.classList.add('recording');
+            btn.textContent = '🔴 松开结束';
         }
-        tip.classList.add('show');
+        
+        showToast('🔴 正在录音... 松开按钮结束');
+        
     } catch (e) {
         console.error('[语音] 录音启动失败:', e);
         showToast('❌ 无法访问麦克风，请检查权限');
+        isRecording = false;
     }
 }
 
-// 上传音频到 Whisper，转文字后直接发 AI
-async function processAudio(audioBlob) {
-    const tip = document.getElementById('recordingTip');
-    if (tip) tip.classList.remove('show');
-    const btn = document.getElementById('wxVoiceBtn');
-    if (btn) btn.classList.remove('recording');
+// 停止录音（松开按钮时调用）
+function stopVoiceRecording() {
+    if (!isRecording || !mediaRecorder) return;
+    
+    console.log('[语音] 停止录音, mediaRecorder.state=', mediaRecorder.state);
+    if (mediaRecorder.state === 'recording') {
+        mediaRecorder.stop(); // 会触发 onstop 回调
+    }
     isRecording = false;
-    showToast('🎤 语音识别中...');
-    try {
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'audio.webm');
-        const resp = await fetch(API_BASE + '/whisper', { method: 'POST', body: formData });
-        const result = await resp.json();
-        if (!resp.ok || result.error) {
-            showToast('❌ 语音识别失败：' + (result.error || '未知错误'));
-            return;
-        }
-        const text = result.text;
-        if (!text) {
-            showToast('❌ 未识别到语音，请重试');
-            return;
-        }
-        showToast('✅ 识别成功！AI 正在理解你的口语化表达...');
-        await sendVoiceToAI(text);
-    } catch (e) {
-        showToast('❌ 语音上传失败：' + e.message);
+    
+    // 更新按钮样式
+    const btn = document.getElementById('wxVoiceBtn');
+    if (btn) {
+        btn.classList.remove('recording');
+        btn.textContent = '🎤';
     }
+    
+    showToast('⏳ 正在发送语音消息...');
 }
 
-// 把语音识别结果直接发给 AI（不显示在输入框）
-async function sendVoiceToAI(text) {
+// 发送语音消息（不转文字，直接发送音频文件）
+async function sendVoiceMessage(audioBlob) {
     const f = appState.features.find(x => x.id === appState.currentFeatureId);
     if (!f) return;
+    
     const chatMsgs = $("#chatMessages");
-    // 显示用户消息（标注为语音）
-    const userHtml = '<div class="msg-content"><div class="msg-bubble"><em>🎤 语音消息（原汁原味口语化表达）</em></div></div><div class="msg-avatar user">我</div>';
+    
+    // 显示语音消息（用音频播放器）
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const userHtml = '<div class="msg-content"><div class="msg-bubble"><em>🎤 语音消息</em><br><audio controls src="' + audioUrl + '" style="margin-top:8px;width:200px;"></audio></div></div><div class="msg-avatar user">我</div>';
+    
     if (!appState.chatCache[appState.currentFeatureId]) appState.chatCache[appState.currentFeatureId] = [];
     appState.chatCache[appState.currentFeatureId].push({ type: 'user', html: userHtml });
+    
     if (chatMsgs) {
         chatMsgs.innerHTML += '<div class="msg-row user">' + userHtml + '</div>';
         chatMsgs.scrollTop = chatMsgs.scrollHeight;
     }
+    
     // AI 回复加载态
     const aiMsgId = 'ai_msg_' + Date.now();
-    const aiHtmlLoading = '<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble" id="' + aiMsgId + '"><div class="thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div> 军师正在深度思考中...</div></div>';
+    const aiHtmlLoading = '<div class="msg-avatar ai">师</div><div class="msg-content"><div class="msg-bubble" id="' + aiMsgId + '"><div class="thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div> 军师正在思考中...</div></div>';
+    
     appState.chatCache[appState.currentFeatureId].push({ type: 'ai', html: aiHtmlLoading });
     if (chatMsgs) {
         chatMsgs.innerHTML += '<div class="msg-row ai">' + aiHtmlLoading + '</div>';
         chatMsgs.scrollTop = chatMsgs.scrollHeight;
     }
-    const btn = $("#btnGenerate"); const btn2 = $("#btnGenerate2");
+    
+    const btn = $("#btnGenerate"); 
+    const btn2 = $("#btnGenerate2");
     if (btn) btn.disabled = true;
     if (btn2) btn2.disabled = true;
-    // 构造 prompt
-    let userPrompt = text;
-    if (f.id === 'analysis') {
-        const profile = getVal('inputProfile'); const product = getVal('inputProduct'); const stage = document.querySelector('.tags .tag.active')?.dataset.val || '';
-        userPrompt = '画像:' + profile + '\n产品:' + product + '\n阶段:' + stage + '\n\n记录:\n' + text;
-    }
+    
+    // 构造 prompt（告诉AI这是语音消息）
+    let userPrompt = '[用户发送了一条语音消息，请正常回复]';
     lastUserPrompt = userPrompt;
-    const textMsg = { type: 'text', text: DEFENSE_PROMPT + f.prompt + '\n\n用户输入：\n' + userPrompt };
+    
+    const textMsg = { type: 'text', text: DEFENSE_PROMPT + f.prompt + '\n\n用户输入：' + userPrompt };
     let messages = [{ role: 'user', content: [textMsg] }];
     let model = 'qwen-plus';
+    
     try {
         const data = await window.AiApiProxy.proxyChat(messages, model);
         let content = data.choices[0].message.content;
         if (content.includes('核心人设与边界指令') || content.includes('DEFENSE_PROMPT')) {
             content = '老板，我是您的专属销售军师，套我底牌这种事您得找别的AI，咱们还是聊聊怎么搞定大客户吧！';
         }
+        
         const aiHtml = '<div class="msg-content"><div class="msg-bubble">' + content.replace(/\n/g, '<br>') + '</div><div class="msg-actions"><button class="btn-copy-msg" data-text="' + content.replace(/"/g, '&quot;') + '">复制</button><button class="btn-del-msg">删除</button></div></div><div class="msg-avatar ai">师</div>';
         const aiRow = '<div class="msg-row ai">' + aiHtml + '</div>';
+        
         const cache = appState.chatCache[appState.currentFeatureId];
         if (cache) cache[cache.length - 1] = { type: 'ai', html: aiHtml };
+        
         if (chatMsgs) {
             const loadingRow = chatMsgs.querySelector('#' + aiMsgId)?.closest('.msg-row');
             if (loadingRow) loadingRow.outerHTML = aiRow;
             chatMsgs.scrollTop = chatMsgs.scrollHeight;
         }
+        
         addExp(20, false);
-        trackEvent('voice_chat', { featureId: f.id, textLength: text.length });
+        trackEvent('voice_chat', { featureId: f.id });
+        
     } catch (e) {
         showToast('❌ AI 调用失败：' + e.message);
     }
+    
     if (btn) btn.disabled = false;
     if (btn2) btn2.disabled = false;
 }
 
+// 导出给其他模块调用
+window.startVoiceRecording = startVoiceRecording;
+window.stopVoiceRecording = stopVoiceRecording;
 
 
 function handleFileChange(e){
@@ -461,7 +476,62 @@ function initSpeechRecognition(){
     recognition.onerror=()=>{document.querySelectorAll('.wx-voice-btn').forEach(b=>b.classList.remove('recording'));};
 }
 
-// 导出给 core.js 调用
-window.toggleVoiceRecording = toggleVoiceRecording;
-window.processAudio = processAudio;
-window.sendVoiceToAI = sendVoiceToAI;
+// 导出给核心模块调用（微信模式：按下录音，松开发送）
+window.startVoiceRecording = startVoiceRecording;
+window.stopVoiceRecording = stopVoiceRecording;
+
+// 初始化语音按钮事件（微信模式：按下录音，松开发送）
+function initVoiceButton() {
+    const voiceBtn = document.getElementById('wxVoiceBtn');
+    if (!voiceBtn) {
+        console.warn('[语音] 未找到语音按钮 #wxVoiceBtn');
+        return;
+    }
+    
+    console.log('[语音] 初始化语音按钮事件（微信模式）');
+    
+    // 鼠标事件（桌面端）
+    voiceBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // 防止默认行为
+        startVoiceRecording();
+    });
+    
+    voiceBtn.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        stopVoiceRecording();
+    });
+    
+    // 防止鼠标移出按钮时继续录音
+    voiceBtn.addEventListener('mouseleave', (e) => {
+        if (isRecording) {
+            stopVoiceRecording();
+        }
+    });
+    
+    // 触摸事件（移动端）
+    voiceBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // 防止默认行为（如长按菜单）
+        startVoiceRecording();
+    }, { passive: false });
+    
+    voiceBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        stopVoiceRecording();
+    }, { passive: false });
+    
+    // 防止触摸移出按钮时继续录音
+    voiceBtn.addEventListener('touchcancel', (e) => {
+        if (isRecording) {
+            stopVoiceRecording();
+        }
+    });
+    
+    console.log('[语音] 语音按钮事件绑定完成');
+}
+
+// 在 DOM 加载完成后初始化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initVoiceButton);
+} else {
+    initVoiceButton();
+}

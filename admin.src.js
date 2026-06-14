@@ -126,7 +126,7 @@ function renderAdminPanel(tab){
     });
     
     // ★★★ 敏感页面需要密码保护 ★★★
-    const protectedTabs = ['activation', 'analytics', 'export'];
+    const protectedTabs = ['activation', 'analytics', 'tokens', 'export'];
     if (protectedTabs.includes(tab) && !isAdminAuthed()) {
         // 显示占位提示
         panel.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--sub, #9CA3AF);">
@@ -412,6 +412,19 @@ function _renderPanel(tab, panel) {
         <div class="form-group"><label class="form-label">预设问题池 (每行一条)</label><textarea class="form-control" id="f_presets" style="min-height:100px">${f.presets.join('\n')}</textarea></div>
         <div class="form-group"><label class="form-label">系统 Prompt</label><textarea class="form-control" id="f_prompt" style="min-height:150px">${f.prompt}</textarea></div>
         <button class="btn btn-gold" id="btnSaveConf">保存设定</button>`;
+    } else if(tab==='tokens'){
+        // Token 消耗管理
+        panel.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0">📊 Token 消耗管理</h3>
+            <button class="btn btn-outline" id="btnRefreshTokens" style="padding:6px 14px;font-size:12px">🔄 刷新数据</button>
+        </div>
+        <div id="tokenContent">
+            <div style="text-align:center;padding:40px;color:var(--sub, #9CA3AF);">⏳ 正在加载 Token 消耗数据...</div>
+        </div>`;
+        loadTokenManagement();
+        $('#btnRefreshTokens')?.addEventListener('click', () => loadTokenManagement());
+        
     }
 }
 
