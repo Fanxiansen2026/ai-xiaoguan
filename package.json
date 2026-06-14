@@ -8,6 +8,7 @@
     "build:prod": "node build.js --prod"
   },
   "devDependencies": {
+    "javascript-obfuscator": "^5.4.3",
     "wrangler": "^4.100.0"
   }
 }

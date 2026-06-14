@@ -85,7 +85,7 @@ function stopVoiceRecording() {
     showToast('⏳ 正在发送语音消息...');
 }
 
-// 发送语音消息（不转文字，直接发送音频文件）
+// 发送语音消息（先转文字，再发给AI）
 async function sendVoiceMessage(audioBlob) {
     const f = appState.features.find(x => x.id === appState.currentFeatureId);
     if (!f) return;
@@ -94,7 +94,7 @@ async function sendVoiceMessage(audioBlob) {
     
     // 显示语音消息（用音频播放器）
     const audioUrl = URL.createObjectURL(audioBlob);
-    const userHtml = '<div class="msg-content"><div class="msg-bubble"><em>🎤 语音消息</em><br><audio controls src="' + audioUrl + '" style="margin-top:8px;width:200px;"></audio></div></div><div class="msg-avatar user">我</div>';
+    const userHtml = '<div class="msg-content"><div class="msg-bubble"><em>🎤 语音消息（识别中...）</em><br><audio controls src="' + audioUrl + '" style="margin-top:8px;width:200px;"></audio></div></div><div class="msg-avatar user">我</div>';
     
     if (!appState.chatCache[appState.currentFeatureId]) appState.chatCache[appState.currentFeatureId] = [];
     appState.chatCache[appState.currentFeatureId].push({ type: 'user', html: userHtml });
@@ -119,15 +119,44 @@ async function sendVoiceMessage(audioBlob) {
     if (btn) btn.disabled = true;
     if (btn2) btn2.disabled = true;
     
-    // 构造 prompt（告诉AI这是语音消息）
-    let userPrompt = '[用户发送了一条语音消息，请正常回复]';
-    lastUserPrompt = userPrompt;
-    
-    const textMsg = { type: 'text', text: DEFENSE_PROMPT + f.prompt + '\n\n用户输入：' + userPrompt };
-    let messages = [{ role: 'user', content: [textMsg] }];
-    let model = 'qwen-plus';
-    
     try {
+        // 第1步：调用 Whisper API 转文字
+        showToast('⏳ 正在识别语音...');
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'voice.webm');
+        
+        const whisperRes = await fetch(API_BASE + '/whisper', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!whisperRes.ok) {
+            const errText = await whisperRes.text();
+            throw new Error('语音识别失败：' + errText);
+        }
+        
+        const whisperData = await whisperRes.json();
+        const transcribedText = whisperData.text || '[语音识别失败]';
+        
+        console.log('[语音] 识别结果：', transcribedText);
+        showToast('✅ 识别成功，正在发送给AI...');
+        
+        // 更新用户界面（显示识别的文字）
+        const voiceMsgRow = chatMsgs?.querySelector('.msg-row.user:last-child');
+        if (voiceMsgRow) {
+            const bubble = voiceMsgRow.querySelector('.msg-bubble');
+            if (bubble) {
+                bubble.innerHTML = '<em>🎤 语音消息</em><br><span style="color:var(--sub);font-size:13px;">' + transcribedText + '</span><br><audio controls src="' + audioUrl + '" style="margin-top:8px;width:200px;"></audio>';
+            }
+        }
+        
+        // 第2步：将识别的文字发给AI
+        lastUserPrompt = transcribedText;
+        
+        const textMsg = { type: 'text', text: DEFENSE_PROMPT + f.prompt + '\n\n用户输入：' + transcribedText };
+        let messages = [{ role: 'user', content: [textMsg] }];
+        let model = 'qwen-plus';
+        
         const data = await window.AiApiProxy.proxyChat(messages, model);
         let content = data.choices[0].message.content;
         if (content.includes('核心人设与边界指令') || content.includes('DEFENSE_PROMPT')) {
@@ -147,10 +176,17 @@ async function sendVoiceMessage(audioBlob) {
         }
         
         addExp(20, false);
-        trackEvent('voice_chat', { featureId: f.id });
+        trackEvent('voice_chat', { featureId: f.id, transcribedText: transcribedText.slice(0, 50) });
         
     } catch (e) {
-        showToast('❌ AI 调用失败：' + e.message);
+        console.error('[语音] 发送失败：', e);
+        showToast('❌ 语音消息处理失败：' + e.message);
+        
+        // 更新AI消息为错误提示
+        const loadingRow = chatMsgs?.querySelector('#' + aiMsgId)?.closest('.msg-row');
+        if (loadingRow) {
+            loadingRow.outerHTML = '<div class="msg-row ai"><div class="msg-content"><div class="msg-bubble" style="color:var(--red);">⚠️ 语音消息处理失败，请重试或改用文字输入</div></div><div class="msg-avatar ai">师</div></div>';
+        }
     }
     
     if (btn) btn.disabled = false;
@@ -529,9 +565,27 @@ function initVoiceButton() {
     console.log('[语音] 语音按钮事件绑定完成');
 }
 
-// 在 DOM 加载完成后初始化
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initVoiceButton);
-} else {
-    initVoiceButton();
-}
+// 在 DOM 加载完成后初始化（使用 MutationObserver 监听按钮动态创建）
+(function() {
+    function tryInitVoiceButton() {
+        const voiceBtn = document.getElementById('wxVoiceBtn');
+        if (voiceBtn && !voiceBtn.dataset.bound) {
+            initVoiceButton();
+            voiceBtn.dataset.bound = 'true';
+        }
+    }
+    
+    // 初次尝试
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', tryInitVoiceButton);
+    } else {
+        tryInitVoiceButton();
+    }
+    
+    // 监听 DOM 变化（功能页面动态加载时）
+    const observer = new MutationObserver(() => {
+        tryInitVoiceButton();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+})();
+

@@ -406,7 +406,7 @@ export default {
         
         // ★★★ 核心改动：记录激活并检查多设备绑定 ★★★
         const now = Date.now();
-        const activatedAt = new Date(now).toISOstring(); // 精确到毫秒的时间
+        const activatedAt = new Date(now).toISOString(); // 精确到毫秒的时间
         
         // 管理员测试码：跳过设备绑定，直接返回成功
         if (code === '88888888') {
@@ -447,7 +447,7 @@ export default {
         const { binding, isNewDevice, deviceCount } = await saveCodeBinding(env, code, deviceId, { ip: clientIP, userAgent });
 
         // 同时保存用户的激活状态（供 check-status 使用）
-        const deviceInfo = parseDeviceInfo(userAgent);
+        // 使用第405行已解析的 deviceInfo
         const userActivation = {
           code, type: codeInfo.type, days: codeInfo.days, label: codeInfo.label,
           activatedAt: now, expiresAt: now + codeInfo.days * 86400 * 1000,
