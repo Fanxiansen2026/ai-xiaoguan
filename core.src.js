@@ -1037,3 +1037,18 @@ function generateSharePoster(userName, featureName, callback) {
 function renderAdminPage(){
     if(typeof initAdmin === 'function') initAdmin();
 }
+
+/* ===== 加载动画控制 ===== */
+// 显示加载动画
+function showLoading(msg){
+    var el = document.getElementById('loadingOverlay');
+    if(el){
+        if(msg) el.querySelector('p').textContent = msg;
+        el.style.display = 'flex';
+    }
+}
+// 隐藏加载动画
+function hideLoading(){
+    var el = document.getElementById('loadingOverlay');
+    if(el) el.style.display = 'none';
+}
