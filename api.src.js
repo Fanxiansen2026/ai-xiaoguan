@@ -9,8 +9,10 @@ let audioChunks = [];
 
 // 切换录音状态（toggle）
 async function toggleVoiceRecording(btnEl) {
+    console.log('[语音] toggleVoiceRecording 被调用, isRecording=', isRecording);
     if (isRecording) {
         // 停止录音
+        console.log('[语音] 停止录音, mediaRecorder.state=', mediaRecorder?.state);
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
         }
@@ -18,18 +20,26 @@ async function toggleVoiceRecording(btnEl) {
     }
     // 开始录音
     try {
+        console.log('[语音] 开始请求麦克风权限...');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('[语音] 麦克风权限获取成功');
         // 优先用 webm， fallback 到默认
         const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
         mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        console.log('[语音] MediaRecorder 创建成功, mimeType=', mediaRecorder.mimeType);
         audioChunks = [];
-        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.ondataavailable = (e) => { 
+            if (e.data.size > 0) { audioChunks.push(e.data); console.log('[语音] 收到音频数据, size=', e.data.size); }
+        };
         mediaRecorder.onstop = async () => {
+            console.log('[语音] onstop 触发, audioChunks.length=', audioChunks.length);
             stream.getTracks().forEach(t => t.stop());
             const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+            console.log('[语音] 音频Blob创建成功, size=', blob.size, ', type=', blob.type);
             await processAudio(blob);
         };
         mediaRecorder.start();
+        console.log('[语音] 录音已开始');
         isRecording = true;
         btnEl.classList.add('recording');
         showToast('🔴 正在录音... 说完了再点一下停止');
@@ -43,6 +53,7 @@ async function toggleVoiceRecording(btnEl) {
         }
         tip.classList.add('show');
     } catch (e) {
+        console.error('[语音] 录音启动失败:', e);
         showToast('❌ 无法访问麦克风，请检查权限');
     }
 }

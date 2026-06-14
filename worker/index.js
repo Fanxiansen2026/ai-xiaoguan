@@ -193,7 +193,9 @@ async function getKV(env, key) {
 
 async function setKV(env, key, value, ttl = null) {
   if (!env.RATE_LIMIT_KV) return;
-  const opts = ttl ? { expirationTtl: ttl } : {};
+  // Cloudflare KV TTL 上限：2147483647 秒（约68年）
+  const MAX_TTL = 2147483647;
+  const opts = (ttl && ttl > 0) ? { expirationTtl: Math.min(ttl, MAX_TTL) } : {};
   await env.RATE_LIMIT_KV.put(key, JSON.stringify(value), opts);
 }
 
@@ -368,6 +370,22 @@ export default {
           });
         }
         
+        // ★★★ 设备绑定限制：非管理员码只能绑一台设备 ★★★
+        const existingBinding = await getCodeBinding(env, code);
+        if (existingBinding) {
+          const boundDeviceIds = Object.keys(existingBinding.devices || {});
+          const isAlreadyBound = boundDeviceIds.length > 0 && !boundDeviceIds.includes(deviceId);
+          if (isAlreadyBound) {
+            // 已绑定其他设备，拒绝激活
+            const boundDevice = existingBinding.devices[boundDeviceIds[0]];
+            const boundTime = boundDevice ? new Date(boundDevice.firstActivatedAt).toLocaleString('zh-CN') : '未知';
+            return json({
+              valid: false,
+              message: `⚠️ 此激活码已在一台设备上激活（激活时间：${boundTime}）。\n\n每个激活码只能在一台设备上使用。\n\n如要换设备，请先在旧设备上退出激活。`
+            });
+          }
+        }
+
         const { binding, isNewDevice, deviceCount } = await saveCodeBinding(env, code, deviceId, { ip: clientIP, userAgent });
 
         // 同时保存用户的激活状态（供 check-status 使用）
