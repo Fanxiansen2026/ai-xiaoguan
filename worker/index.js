@@ -1,12 +1,59 @@
 // ============================================================
-//  AI销冠大脑 - Cloudflare Workers 后端服务 v2.1
-//  功能：激活码验证 + API代理 + 用户限流 + 行为追踪 + 码管理 + 配置管理
+//  AI销冠大脑 - Cloudflare Workers 后端服务 v2.3
+//  功能：激活码验证 + API代理 + 用户限流 + 行为追踪 + 码管理 + 配置管理 + 设备型号检测
 // ============================================================
 
 // ===== 配置区 =====
 const DASHSCOPE_API_KEY = 'sk-c0a3c435fbf4446c9ef9201fa319094d';
 const DAILY_CALL_LIMIT = 200;
 const ADMIN_PASSWORD = 'xiaoguan2024';
+
+// ===== 设备信息解析函数 =====
+function parseDeviceInfo(userAgent) {
+    let deviceModel = '未知设备';
+    let os = '未知系统';
+    
+    if (!userAgent) return { deviceModel, os, userAgentShort: '' };
+    
+    // 解析操作系统
+    if (userAgent.includes('iPhone')) {
+        os = 'iOS';
+        const match = userAgent.match(/iPhone\s*OS\s*(\d+)/i);
+        if (match) os = `iOS ${match[1]}`;
+    } else if (userAgent.includes('Android')) {
+        os = 'Android';
+        const match = userAgent.match(/Android\s*([\d.]+)/i);
+        if (match) os = `Android ${match[1]}`;
+    } else if (userAgent.includes('Windows')) {
+        os = 'Windows';
+    } else if (userAgent.includes('Mac')) {
+        os = 'macOS';
+    } else if (userAgent.includes('Linux')) {
+        os = 'Linux';
+    }
+    
+    // 解析设备型号
+    if (userAgent.includes('iPhone')) {
+        deviceModel = 'iPhone';
+    } else if (userAgent.includes('iPad')) {
+        deviceModel = 'iPad';
+    } else if (userAgent.includes('Android')) {
+        const match = userAgent.match(/;\s*([^;)]+)\s*Build/i);
+        if (match) {
+            deviceModel = match[1].trim();
+        } else {
+            deviceModel = 'Android设备';
+        }
+    } else if (userAgent.includes('Windows')) {
+        deviceModel = 'Windows PC';
+    } else if (userAgent.includes('Macintosh') || userAgent.includes('Mac OS')) {
+        deviceModel = 'Mac';
+    } else {
+        deviceModel = '其他设备';
+    }
+    
+    return { deviceModel, os, userAgentShort: userAgent.slice(0, 100) };
+}
 
 // 激活码列表（150个）
 const ACTIVATION_CODES = {
@@ -246,6 +293,7 @@ async function saveCodeBinding(env, code, deviceId, info) {
 
   // 记录当前设备
   const existingDeviceIds = Object.keys(binding.devices);
+  const deviceInfo = parseDeviceInfo(info.userAgent || '');
 
         if (!binding.devices[deviceId]) {
           // 新设备首次绑定此码
@@ -254,6 +302,8 @@ async function saveCodeBinding(env, code, deviceId, info) {
             lastActiveAt: now,
             userAgent: info.userAgent || '',
             ip: info.ip || '',
+            deviceModel: deviceInfo.deviceModel, // 设备型号
+            os: deviceInfo.os, // 操作系统
             sessions: 1,
             chats: 0,
             featureUsage: {},
@@ -299,6 +349,7 @@ async function updateDeviceStats(env, code, deviceId, eventType, eventData) {
   // ★ 记录 token 消耗
   if (eventType === 'token_usage' && eventData.totalTokens) {
     device.totalTokens = (device.totalTokens || 0) + eventData.totalTokens;
+    device.lastTokenUsageAt = Date.now(); // 精确记录最后一次Token消耗时间
   }
 
   binding.lastActivityAt = Date.now();
@@ -327,7 +378,7 @@ export default {
 
       // 健康检查
       if (path === '/health') {
-        return json({ status: 'ok', time: Date.now(), version: '2.1', totalCodes: Object.keys(ACTIVATION_CODES).length });
+        return json({ status: 'ok', time: Date.now(), version: '2.3', totalCodes: Object.keys(ACTIVATION_CODES).length });
       }
 
       // ========== 接口1: 激活码验证（核心改造） ==========
@@ -350,15 +401,22 @@ export default {
           return json({ valid: false, message: '激活码不存在或已失效' });
         }
 
+        // 解析设备信息
+        const deviceInfo = parseDeviceInfo(userAgent);
+        
         // ★★★ 核心改动：记录激活并检查多设备绑定 ★★★
         const now = Date.now();
+        const activatedAt = new Date(now).toISOstring(); // 精确到毫秒的时间
         
         // 管理员测试码：跳过设备绑定，直接返回成功
         if (code === '88888888') {
           const userActivation = {
             code, type: 'admin', days: 36500, label: '管理员测试码',
-            activatedAt: now, expiresAt: now + 36500 * 86400 * 1000,
-            deviceId
+            activatedAt, // 精确激活时间
+            deviceId,
+            deviceModel: deviceInfo.deviceModel, // 设备型号
+            os: deviceInfo.os,
+            userAgentShort: deviceInfo.userAgentShort
           };
           await setKV(env, `activation:${deviceId}`, userActivation, 36500 * 86400);
           console.log(`[激活] 管理员测试码激活，设备=${deviceId}`);
@@ -389,10 +447,14 @@ export default {
         const { binding, isNewDevice, deviceCount } = await saveCodeBinding(env, code, deviceId, { ip: clientIP, userAgent });
 
         // 同时保存用户的激活状态（供 check-status 使用）
+        const deviceInfo = parseDeviceInfo(userAgent);
         const userActivation = {
           code, type: codeInfo.type, days: codeInfo.days, label: codeInfo.label,
           activatedAt: now, expiresAt: now + codeInfo.days * 86400 * 1000,
-          deviceId
+          deviceId,
+          deviceModel: deviceInfo.deviceModel, // 设备型号
+          os: deviceInfo.os, // 操作系统
+          userAgentShort: deviceInfo.userAgentShort // UserAgent摘要
         };
         await setKV(env, `activation:${deviceId}`, userActivation, codeInfo.days * 86400 + 3600);
 
@@ -656,7 +718,11 @@ export default {
                 chats: dev.chats,
                 featureUsage: dev.featureUsage,
                 totalDuration: Math.round((dev.totalDuration || 0) / 60), // 分钟
+                totalTokens: dev.totalTokens || 0,
+                lastTokenUsageAt: dev.lastTokenUsageAt || null, // 最后一次Token消耗时间
                 ip: dev.ip,
+                deviceModel: dev.deviceModel || '未知设备', // 设备型号
+                os: dev.os || '未知系统', // 操作系统
                 userAgentShort: dev.userAgent ? dev.userAgent.slice(0, 60) : ''
               }))
             });
@@ -778,10 +844,13 @@ export default {
               isExpired: now > binding.createdAt + (ACTIVATION_CODES[code]?.days || 30) * 86400 * 1000,
               devices: deviceList.map(([devId, dev]) => ({
                 deviceId: devId,
+                deviceModel: dev.deviceModel || '未知设备', // 设备型号
+                os: dev.os || '未知系统', // 操作系统
                 sessions: dev.sessions || 0,
                 chats: dev.chats || 0,
                 totalDurationMin: Math.round((dev.totalDuration || 0) / 60),
                 totalTokens: dev.totalTokens || 0,
+                lastTokenUsageAt: dev.lastTokenUsageAt || null, // 最后一次Token消耗时间
                 lastActiveAt: dev.lastActiveAt
               }))
             });
